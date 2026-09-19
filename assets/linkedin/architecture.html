@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:1200px; height:1200px; background:#0D1117; color:#E6EDF3;
+         font-family:"Segoe UI",Arial,sans-serif; padding:56px 60px; display:flex; flex-direction:column; }
+  .tag { color:#3FB950; font-size:17px; font-weight:700; letter-spacing:4px; }
+  h1 { font-size:54px; font-weight:800; margin-top:12px; letter-spacing:-0.5px; }
+  .sub { font-size:22px; color:#9DA7B3; margin-top:10px; line-height:1.35; }
+  .flow { display:flex; align-items:stretch; margin-top:44px; }
+  .node { flex:1; background:#161B22; border:1.5px solid #30363D; border-radius:16px;
+          padding:20px 18px; display:flex; flex-direction:column; }
+  .node .num { font-size:15px; font-weight:800; color:#58A6FF; letter-spacing:2px; }
+  .node .name { font-size:24px; font-weight:800; margin-top:8px; line-height:1.15; }
+  .node .desc { font-size:17.5px; color:#9DA7B3; margin-top:8px; line-height:1.35; }
+  .arr { display:flex; align-items:center; justify-content:center; width:44px;
+         color:#3FB950; font-size:30px; font-weight:800; }
+  .seclabel { margin-top:40px; font-size:16px; font-weight:700; letter-spacing:3px; color:#9DA7B3; }
+  .zones { display:flex; gap:24px; margin-top:16px; flex:1; }
+  .zone { flex:1; background:#161B22; border:1.5px solid #30363D; border-radius:18px;
+          padding:28px 30px; position:relative; overflow:hidden;
+          display:flex; flex-direction:column; }
+  .zone::before { content:""; position:absolute; left:0; top:0; bottom:0; width:6px; }
+  .zone.gpu::before { background:#3FB950; }
+  .zone.ram::before { background:#58A6FF; }
+  .zone .head { display:flex; align-items:baseline; gap:12px; }
+  .zone .name { font-size:27px; font-weight:800; }
+  .zone .size { font-size:21px; font-weight:800; }
+  .zone.gpu .size { color:#3FB950; } .zone.ram .size { color:#58A6FF; }
+  .items { flex:1; display:flex; flex-direction:column; justify-content:space-evenly; margin-top:8px; }
+  .item { font-size:20px; line-height:1.45; color:#C9D1D9; padding-left:24px; position:relative; }
+  .item::before { content:"▸"; position:absolute; left:0; font-size:19px; }
+  .zone.gpu .item::before { color:#3FB950; } .zone.ram .item::before { color:#58A6FF; }
+  .item b { color:#E6EDF3; }
+  .chip { margin-top:12px; padding:14px 16px; border-radius:10px; font-size:18px;
+          font-weight:700; text-align:center; }
+  .zone.gpu .chip { background:rgba(63,185,80,0.12); border:1.5px solid rgba(63,185,80,0.55); color:#3FB950; }
+  .zone.ram .chip { background:rgba(88,166,255,0.12); border:1.5px solid rgba(88,166,255,0.55); color:#58A6FF; }
+  .footer { margin-top:34px; border-top:1.5px solid #30363D; padding-top:22px;
+            display:flex; justify-content:space-between; align-items:baseline; }
+  .stat { font-size:21px; color:#C9D1D9; }
+  .stat b { color:#3FB950; font-size:24px; }
+  .url { font-size:23px; font-weight:800; color:#58A6FF; }
+</style></head>
+<body>
+  <div class="tag">LOCAL · WINDOWS · OPEN SOURCE</div>
+  <h1>16GB VRAM Local Agent Stack</h1>
+  <div class="sub">A 27B coding agent on one consumer GPU — any GGUF fits, every launch parameter editable</div>
+
+  <div class="flow">
+    <div class="node"><div class="num">1</div><div class="name">DSH Desktop</div>
+      <div class="desc">Agent harness — UI, tools, approvals</div></div>
+    <div class="arr">→</div>
+    <div class="node"><div class="num">2</div><div class="name">Parameter Panel</div>
+      <div class="desc">context · MTP drafts · KV budget → apply &amp; restart</div></div>
+    <div class="arr">→</div>
+    <div class="node"><div class="num">3</div><div class="name">KVMem Server</div>
+      <div class="desc">llama.cpp fork — OpenAI-compatible API, MTP replay</div></div>
+    <div class="arr">→</div>
+    <div class="node"><div class="num">4</div><div class="name">GGUF Model</div>
+      <div class="desc">dual slots · 27B IQ4_XS as validated default</div></div>
+  </div>
+
+  <div class="seclabel">MEMORY LAYOUT</div>
+  <div class="zones">
+    <div class="zone gpu">
+      <div class="head"><span class="name">NVIDIA GPU</span><span class="size">16 GB VRAM</span></div>
+      <div class="items">
+        <div class="item"><b>27B language model</b> — full GPU offload (IQ4_XS)</div>
+        <div class="item"><b>KV retrieval window</b> — 32K tokens kept hot on-GPU</div>
+        <div class="item"><b>MTP draft</b> — speculative decoding, 2 tokens</div>
+        <div class="item"><b>Compute buffers</b> — small batch (256) to save VRAM</div>
+      </div>
+      <div class="chip">66/66 layers on GPU · 0 layers on CPU</div>
+    </div>
+    <div class="zone ram">
+      <div class="head"><span class="name">System RAM</span><span class="size">32 GB</span></div>
+      <div class="items">
+        <div class="item"><b>Full KV cache</b> — 64K–256K logical context resident</div>
+        <div class="item"><b>Vision encoder</b> — mmproj stays on CPU</div>
+        <div class="item"><b>Streams to GPU</b> — flat 14–20 tok/s up to 155K input</div>
+        <div class="item"><b>Desktop stays usable</b> — browsers &amp; editors keep running</div>
+      </div>
+      <div class="chip">155K input completed with 326MB RAM to spare</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="stat">Measured on an everyday desktop (browsers open): <b>32.05 tok/s</b> real agent session</div>
+    <div class="url">github.com/G0K0U/kvmem-agent-16gb</div>
+  </div>
+</body></html>
