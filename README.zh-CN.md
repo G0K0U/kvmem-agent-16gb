@@ -4,7 +4,7 @@
 
 Windows 上的可复现部署快照：桌面 Agent 宿主（DSH Desktop）通过本地参数面板驱动 KVMem llama.cpp 服务。**这套栈本身与模型无关**——双 GGUF 模型槽位，上下文、MTP 和 KV 预算等启动参数按组全量可编辑——**但本仓库默认附带并验证了一个固定模型**：QQZ 27B IQ4_XS MTP 量化版，针对 16GB 显存 / 32GB 内存的机型调优。
 
-**真实验证案例：RTX 4080 16GB + 32GB RAM，64K 配置——编程 Agent 任务（单文件 HTML，SVG 鹈鹕骑自行车动画）完成 10 次模型调用，加权生成速度 32.05 token/s。** 该会话实际峰值上下文约 27K token；这不是"填满 64K 后恒定 32 token/s"的证明。方法、数字与边界见[成功案例](docs/CASE-STUDY.md)。
+**真实验证案例：RTX 4080 16GB + 32GB RAM，64K 配置——编程 Agent 任务（单文件 HTML，SVG 鹈鹕骑自行车动画）完成 10 次模型调用，加权生成速度 32.05 token/s。** 该会话实际峰值上下文约 27K token；这不是"填满 64K 后恒定 32 token/s"的证明。全部测试在日常桌面环境下进行：后台始终开着浏览器、编辑器等正常使用的软件；仅关闭 ComfyUI、游戏等 GPU 重载。方法、数字与边界见[成功案例](docs/CASE-STUDY.md)。
 
 本仓库提供该会话使用的文本/编程 Agent 链路。为了保持案例参数，配置仍加载 CPU 视觉编码器；这不代表视觉 Agent 已稳定。报错较多的 Computer Use 插件不随本仓库安装。
 
@@ -39,7 +39,7 @@ DSH Desktop → 本地参数面板管理模型进程
 
 ## 安装
 
-需要 Windows x64、与上述 CUDA 运行时匹配的 NVIDIA 驱动、16GB NVIDIA 显存、32GB RAM、Node.js 24（原环境 24.19.0）、PowerShell、Git 和 curl。模型约 14.25GB，视觉编码器约 0.93GB；另需运行时、安装包和缓存空间。测试期间关闭 ComfyUI 和其他大型 GPU 软件。
+需要 Windows x64、与上述 CUDA 运行时匹配的 NVIDIA 驱动、16GB NVIDIA 显存、32GB RAM、Node.js 24（原环境 24.19.0）、PowerShell、Git 和 curl。模型约 14.25GB，视觉编码器约 0.93GB；另需运行时、安装包和缓存空间。模型运行时日常后台软件（浏览器、编辑器、聊天）可以保持开启——案例数字就是在该条件下测得的；关闭 ComfyUI、游戏等 GPU 重载即可。
 
 1. 克隆本仓库并进入目录。在 PowerShell 运行：
 

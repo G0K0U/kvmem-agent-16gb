@@ -4,7 +4,7 @@
 
 A reproducible Windows deployment snapshot: a desktop Agent harness (DSH Desktop) driving a KVMem llama.cpp server through a local parameter panel. **The stack itself is model-agnostic** — two GGUF model slots, with context, MTP and KV-budget launch parameters fully editable per group — **but this repository ships and validates one pinned default**: the QQZ 27B IQ4_XS MTP quant, tuned for the 16GB-VRAM / 32GB-RAM machine class.
 
-**Validated real-world case: RTX 4080 16GB + 32GB RAM, 64K preset — a coding-agent session (single-file HTML with an animated SVG pelican on a bicycle) finished 10 model calls at a weighted 32.05 token/s.** The session's actual peak context was about 27K tokens; this is not a claim of "full 64K at a constant 32 token/s". Method, numbers and limits: [case study](docs/CASE-STUDY.md).
+**Validated real-world case: RTX 4080 16GB + 32GB RAM, 64K preset — a coding-agent session (single-file HTML with an animated SVG pelican on a bicycle) finished 10 model calls at a weighted 32.05 token/s.** The session's actual peak context was about 27K tokens; this is not a claim of "full 64K at a constant 32 token/s". Every test ran on the everyday desktop, with normal-use software — browsers, editors, chat — open in the background; only GPU-heavy workloads (ComfyUI, games) were kept closed. Method, numbers and limits: [case study](docs/CASE-STUDY.md).
 
 This repo ships the text/coding agent path used in that session. To keep the case-study parameters intact, the config still loads the vision encoder on CPU; that does not mean the vision agent is stable. The Computer Use plugin, which produced many errors, is not installed by this repo.
 
@@ -39,7 +39,7 @@ Apply-time validation in the panel enforces an envelope: context ∈ {64K, 128K,
 
 ## Install
 
-Requires Windows x64, an NVIDIA driver matching the CUDA runtime above, 16GB NVIDIA VRAM, 32GB RAM, Node.js 24 (original environment 24.19.0), PowerShell, Git and curl. The model is about 14.25GB and the vision encoder about 0.93GB; leave room for runtimes, installers and cache. Close ComfyUI and other large GPU software during testing.
+Requires Windows x64, an NVIDIA driver matching the CUDA runtime above, 16GB NVIDIA VRAM, 32GB RAM, Node.js 24 (original environment 24.19.0), PowerShell, Git and curl. The model is about 14.25GB and the vision encoder about 0.93GB; leave room for runtimes, installers and cache. Everyday background software (browser, editors, chat) can stay open while the model runs — the case-study numbers were measured that way; close GPU-heavy workloads such as ComfyUI or games.
 
 1. Clone this repo and enter it. In PowerShell run:
 
