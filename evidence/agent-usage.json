@@ -1,0 +1,64 @@
+{
+  "source": "Numeric usage fields from original DSH session; conversation omitted.",
+  "calls": [
+    {
+      "inputTokens": 12121,
+      "outputTokens": 8192,
+      "totalTokens": 20313
+    },
+    {
+      "inputTokens": 8258,
+      "outputTokens": 2563,
+      "totalTokens": 22941,
+      "cacheReadTokens": 12120
+    },
+    {
+      "inputTokens": 38,
+      "outputTokens": 142,
+      "totalTokens": 23121,
+      "cacheReadTokens": 22941
+    },
+    {
+      "inputTokens": 28,
+      "outputTokens": 281,
+      "totalTokens": 23430,
+      "cacheReadTokens": 23121
+    },
+    {
+      "inputTokens": 28,
+      "outputTokens": 309,
+      "totalTokens": 23767,
+      "cacheReadTokens": 23430
+    },
+    {
+      "inputTokens": 87,
+      "outputTokens": 175,
+      "totalTokens": 24029,
+      "cacheReadTokens": 23767
+    },
+    {
+      "inputTokens": 42,
+      "outputTokens": 163,
+      "totalTokens": 24234,
+      "cacheReadTokens": 24029
+    },
+    {
+      "inputTokens": 19,
+      "outputTokens": 97,
+      "totalTokens": 24350,
+      "cacheReadTokens": 24234
+    },
+    {
+      "inputTokens": 1597,
+      "outputTokens": 630,
+      "totalTokens": 26577,
+      "cacheReadTokens": 24350
+    },
+    {
+      "inputTokens": 67,
+      "outputTokens": 322,
+      "totalTokens": 26966,
+      "cacheReadTokens": 26577
+    }
+  ]
+}

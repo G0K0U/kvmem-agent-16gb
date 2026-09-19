@@ -1,0 +1,729 @@
+/**
+ * Local LLM Controller — Host half.
+ *
+ * Manages a llama-server child process for TWO model SLOTS (A/B) — each slot is
+ * a model folder plus a chosen GGUF and its own eight launch-parameter groups
+ * (text/vision × fast/long-context) — and publishes its state through the
+ * `local-llm` settings namespace, which also carries the action channel:
+ *
+ *   Client writes  { action: 'start'|'stop', model: 'a'|'b', mode, preset }
+ *   Host listens to `settings/updated`, executes the action, clears it, and
+ *   writes back { status, pid, lastError, logTail, action: null }.
+ *
+ * No private RPC is needed: the settings seam is the state/action bus.
+ * Model-behaviour parameters are NOT hardcoded (no 35B/9B catalogue): each
+ * launch uses the parameter-group rows the user edited in the card; the
+ * README carries the recommended parameter sets for the validated models.
+ * Automatic arguments: -m, -a (alias), --port, --host, --api-key, and — when
+ * the started mode is vision — --mmproj + --image-min-tokens from the same
+ * folder's mmproj file.
+ *
+ * Machine-specific values (llama.cpp dir, port, API key, model folders,
+ * provider key) are NOT hardcoded either — they live in the
+ * `local-llm.config` section of settings.yaml (the card form):
+ *   { llamaDir, port, apiKey, slots: { a/b: { dir, file, alias,
+ *     presets: { 'text:fast'|'text:long'|'vision:fast'|'vision:long':
+ *       [{ flag, value }, ...] } } } }
+ * Config is re-read on every start (card edits apply to the next launch).
+ * The DSH provider entries (llm-pi-ai.providers) are written ONLY by the
+ * card's「添加到模型列表」button — no background bootstrap since v1.0.6.
+ * Both slots share ONE provider (`dsh-local`), one entry per slot's chosen
+ * GGUF in its models list — one local server endpoint (port) serves whichever
+ * slot is running, so a single provider with both models keeps the model
+ * picker honest.
+ */
+
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
+export const name = 'local-llm-controller'
+
+export const inject = ['settings', 'timer', 'subprocess', 'agents']
+
+/** The eight parameter groups: 2 slots × text/vision × fast/long-context. */
+export const PRESET_GROUPS = ['text:fast', 'text:long', 'vision:fast', 'vision:long']
+
+/** The single llm-pi-ai provider shared by both slots — stable key so model
+ *  renames on the models page and repeated「添加到模型列表」presses keep one
+ *  coherent local provider; one entry per slot's chosen model inside it. */
+const PROVIDER_KEY = 'qqz-kvmem'
+const PROVIDER_NAME = 'Local LLM'
+
+/** Derive a display alias + provider key from a GGUF file name. */
+export function deriveModelNames(file) {
+  const alias = (file || '').replace(/\.gguf$/i, '') || ''
+  const slug = alias.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return { alias, providerKey: 'dsh-local-' + (slug || 'model') }
+}
+
+/** Basic launch-parameter rows prefilled for a fresh parameter group. */
+export function defaultPresetArgs(group) {
+  const ctx = group.indexOf('long') >= 0 ? 131072 : 32768
+  return [
+    { flag: '-ngl', value: '99' },
+    { flag: '-fa', value: 'on' },
+    { flag: '-t', value: '20' },
+    { flag: '-tb', value: '20' },
+    { flag: '-np', value: '1' },
+    { flag: '--cache-type-k', value: 'q8_0' },
+    { flag: '--cache-type-v', value: 'q8_0' },
+    { flag: '--temp', value: '1.0' },
+    { flag: '--top-k', value: '20' },
+    { flag: '--top-p', value: '0.95' },
+    { flag: '--min-p', value: '0.0' },
+    { flag: '--repeat-penalty', value: '1' },
+    { flag: '--presence-penalty', value: '0' },
+    { flag: '-c', value: String(ctx) },
+    { flag: '--metrics', value: '' },
+    { flag: '--slots', value: '' },
+  ]
+}
+
+/** Normalize one raw argument row to { flag, value } or drop it when invalid. */
+export function normalizeArgRow(row) {
+  if (!row || typeof row !== 'object') return null
+  const flag = typeof row.flag === 'string' ? row.flag.trim() : ''
+  if (!flag) return null
+  const value = typeof row.value === 'string' ? row.value : (row.value == null ? '' : String(row.value))
+  return { flag, value }
+}
+
+/** Normalize a raw presets object to all eight groups. An ABSENT group
+ *  (fresh install, or a config predating the group) is seeded from the
+ *  default template — that is the "installed defaults" moment. A STORED
+ *  group — INCLUDING one that lacks rows the template later gained, and one
+ *  the user emptied — is the user's state and is kept verbatim. Template
+ *  updates never backfill stored groups: an upgrade must not silently change
+ *  parameters the user already tuned. */
+export function normalizePresets(raw) {
+  const out = {}
+  for (const g of PRESET_GROUPS) {
+    const rows = (raw && raw[g] && Array.isArray(raw[g])) ? raw[g] : null
+    out[g] = rows ? rows.map(normalizeArgRow).filter(Boolean) : defaultPresetArgs(g)
+  }
+  return out
+}
+
+/** Find the value of a flag (e.g. -c) inside parameter rows; null when absent. */
+export function argValue(rows, flag) {
+  if (!Array.isArray(rows)) return null
+  for (const r of rows) if (r && r.flag === flag) return r.value || null
+  return null
+}
+
+export function validateKvmemRows(rows) {
+  const number = flag => Number(argValue(rows,flag))
+  const context=number('-c'),budget=number('--kvmem-budget'),reserve=number('--kvmem-gen-reserve'),mtp=number('--spec-draft-n-max')
+  if(![65536,131072,196608,262144].includes(context))throw Error('上下文请选择 64K / 128K / 192K / 256K')
+  if(![8192,16384,24576,32768,40960,49152].includes(budget)||![4096,8192,16384].includes(reserve)||budget+reserve>context)throw Error('KV 缓存预算或生成预留无效')
+  if(![1,2,3,4].includes(mtp))throw Error('MTP 草稿数必须为 1–4')
+  if(number('-ngl')<66)throw Error('请保留 GPU 全层加载：-ngl 999')
+  return {context,budget,reserve,mtp}
+}
+
+export function apply(ctx) {
+  // ---- config defaults ----
+  const DEF = {
+    llamaDir: '', // author-machine path removed — fresh users must set it in the card
+    serverExe: 'llama-kvmem-server.exe', // linux/mac: llama-server
+    port: 55555, // random 5-digit default; override via config if taken
+    apiKey: '', // empty = no auth (127.0.0.1 loopback only); set to require a key
+    settingsNs: 'llm-pi-ai', // namespace holding the DSH providers
+    curlPath: null, // auto-detect; set to override
+  }
+  const READY_TIMEOUT_MS = 360000
+  const POLL_MS = 2000
+
+  // ---- settings namespace (state/action bus) ----
+  const localSchema = (v) => {
+    const src = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}
+    return {
+      slot: src.slot === 'b' ? 'b' : 'a',
+      mode: src.mode === 'vision' ? 'vision' : 'text',
+      preset: src.preset === 'long' ? 'long' : 'fast',
+      status: typeof src.status === 'string' ? src.status : 'stopped',
+      pid: typeof src.pid === 'number' ? src.pid : null,
+      action: (src.action === 'start' || src.action === 'stop' || src.action === 'restart' || src.action === 'add-providers') ? src.action : null,
+      lastError: typeof src.lastError === 'string' ? src.lastError : null,
+      logTail: typeof src.logTail === 'string' ? src.logTail : null,
+      config: (src.config && typeof src.config === 'object') ? src.config : undefined,
+    }
+  }
+  localSchema.toJSON = () => ({ type: 'object', dict: {} })
+
+  const scope = ctx.settings.register('local-llm', localSchema)
+  const saved = scope.get()
+
+  // ---- user config: settings.yaml local-llm.config + ~/.dsh/local-llm.config.json ----
+  function readFileConfig() {
+    try {
+      const p = path.join(process.env.DSH_HOME || path.join(os.homedir(), '.dsh'), 'local-llm.config.json')
+      if (!fs.existsSync(p)) return null
+      const raw = JSON.parse(fs.readFileSync(p, 'utf8'))
+      return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : null
+    } catch (e) {
+      console.log('[local-llm] local-llm.config.json ignored: ' + ((e && e.message) || String(e)))
+      return null
+    }
+  }
+
+  /** Enumerate the selectable model .gguf file names inside one model folder
+   *  ([] on any failure). mmproj / vision-projector files are excluded: they
+   *  are wired automatically in vision mode, never a selectable model. */
+  function listModelFiles(dir) {
+    if (!dir) return []
+    try {
+      return fs.readdirSync(dir).filter((n) => /\.gguf$/i.test(n) && !/mmproj/i.test(n)).sort()
+    } catch (e) {
+      return []
+    }
+  }
+
+  /** The vision-projector (.mmproj) file name inside a folder, if any. */
+  function findMmproj(dir) {
+    if (!dir) return null
+    try {
+      const names = fs.readdirSync(dir).filter((n) => /\.gguf$/i.test(n) && /mmproj/i.test(n)).sort()
+      return names.length ? names[0] : null
+    } catch (e) {
+      return null
+    }
+  }
+
+  function resolveConfig() {
+    const savedNow = scope.get()
+    const yamlCfg = (savedNow && savedNow.config && typeof savedNow.config === 'object') ? savedNow.config : {}
+    const fileCfg = readFileConfig() || {}
+    const u = Object.assign({}, yamlCfg, fileCfg) // file config wins
+    const llamaDir = u.llamaDir || DEF.llamaDir
+    const resolvePath = (s) => s.replace(/\{llamaDir\}/g, llamaDir)
+    const slots = {}
+    for (const key of ['a', 'b']) {
+      const o = (u.slots && u.slots[key] && typeof u.slots[key] === 'object') ? u.slots[key] : {}
+      const dir = o.dir ? resolvePath(o.dir) : ''
+      const file = typeof o.file === 'string' ? o.file : ''
+      const alias = (typeof o.alias === 'string' && o.alias) ? o.alias : (file ? deriveModelNames(file).alias : '')
+      slots[key] = {
+        dir,
+        file,
+        files: listModelFiles(dir),
+        mmproj: findMmproj(dir),
+        alias: file || alias,
+        presets: normalizePresets(o.presets),
+      }
+    }
+    return {
+      llamaDir,
+      serverExe: u.serverExe || DEF.serverExe,
+      port: Number.isInteger(u.port) ? u.port : DEF.port,
+      apiKey: typeof u.apiKey === 'string' ? u.apiKey : DEF.apiKey,
+      settingsNs: u.settingsNs || DEF.settingsNs,
+      curlPath: typeof u.curlPath === 'string' && u.curlPath ? u.curlPath : null,
+      slots,
+    }
+  }
+  let CFG = resolveConfig()
+
+  // ---- state ----
+  let slot = 'a'
+  let status = 'stopped' // stopped | starting | ready | stopping | error
+  let mode = 'text'
+  let preset = 'fast'
+  let proc = null
+  let pollHandle = null
+  let starting = false
+  let lastError = null
+  let logTail = ''
+  let curlPath = null
+  let serverPid = null
+  let lastGood = null, rollback = null, recovered = null
+
+  if (saved) {
+    slot = saved.slot
+    mode = saved.mode
+    preset = saved.preset
+  }
+
+  function note(tag, e) {
+    const msg = tag + ': ' + ((e && e.message) || String(e))
+    console.log('[local-llm] ' + msg)
+  }
+
+  function publishState() {
+    const patch = {
+      slot,
+      mode,
+      preset,
+      status,
+      // The DSH subprocess handle keeps the child's identity provider-private
+      // (SubprocessHandle no longer carries a pid field), so the server's PID
+      // is resolved out-of-band by resolveServerPid() — not from the handle.
+      pid: proc ? (serverPid ?? null) : null,
+      action: null,
+      lastError,
+      logTail: logTail.slice(-2000),
+      config: CFG, // current effective config, lets the card render its form
+    }
+    scope.update(patch).catch((e) => note('state publish failed', e))
+  }
+
+  // ---- subprocess helpers ----
+  /**
+   * Resolve the GGUF files inside one slot's model folder: the vision
+   * projector is the file whose name contains "mmproj"; the model is the
+   * user-chosen file (config `slots.<key>.file`, a filename inside the folder)
+   * when it exists in the folder, otherwise the first non-mmproj .gguf.
+   * Throws on failure.
+   */
+  function resolveModelFiles(key) {
+    const dir = CFG.slots[key].dir
+    if (!dir) throw new Error('未配置模型文件夹（slot ' + key + ' .dir）')
+    let names
+    try {
+      names = fs.readdirSync(dir)
+    } catch (e) {
+      throw new Error('模型文件夹不存在: ' + dir)
+    }
+    const ggufs = names.filter((n) => /\.gguf$/i.test(n)).sort()
+    if (!ggufs.length) throw new Error('模型文件夹中没有 .gguf 文件: ' + dir)
+    const mmproj = ggufs.find((n) => /mmproj/i.test(n))
+    const chosen = CFG.slots[key].file
+    const model = (chosen && ggufs.indexOf(chosen) >= 0 && !/mmproj/i.test(chosen)) ? chosen : ggufs.find((n) => !/mmproj/i.test(n))
+    if (!model) throw new Error('模型文件夹中找不到模型 GGUF（只有一个 mmproj?）: ' + dir)
+    return {
+      file: dir + '/' + model,
+      mmproj: mmproj ? dir + '/' + mmproj : null,
+    }
+  }
+
+  function buildArgv(slotKey, mo, p) {
+    const sl = CFG.slots[slotKey]
+    if (!sl) return null
+    const rows = sl.presets[mo + ':' + p]
+    if (!rows) return null
+    validateKvmemRows(rows)
+    let files
+    try {
+      files = resolveModelFiles(slotKey)
+    } catch (e) {
+      throw e
+    }
+    const argv = [CFG.llamaDir + '/' + CFG.serverExe, '-m', files.file]
+    // vision mode auto-wires the folder's mmproj, if present
+    if (mo === 'vision' && files.mmproj) argv.push('--mmproj', files.mmproj, '--no-mmproj-offload', '--image-max-tokens', '512')
+    argv.push('--port', String(CFG.port), '--host', '127.0.0.1')
+    if (CFG.apiKey) throw new Error('此 KVMem 配置仅使用本机回环，请将密钥留空')
+    for (const r of rows) {
+      argv.push(r.flag)
+      if (r.value) argv.push(r.flag==='-n' ? argValue(rows,'--kvmem-gen-reserve') : r.value)
+    }
+    return argv
+  }
+
+  function readLogTail() {
+    let t = ''
+    if (proc) {
+      try { if (proc.collected.stderr) t += proc.collected.stderr.readFrom(0).text } catch (e) { /* noop */ }
+      try { if (proc.collected.stdout) t += proc.collected.stdout.readFrom(0).text } catch (e) { /* noop */ }
+    }
+    return t
+  }
+
+  function stopPolling() {
+    if (pollHandle) { try { pollHandle() } catch (e) { /* noop */ } pollHandle = null }
+  }
+
+  function fail(reason) {
+    status = 'error'
+    lastError = reason
+    logTail = readLogTail()
+    stopPolling()
+    if (proc) { try { proc.terminate() } catch (e) { /* noop */ } }
+    publishState()
+    if(rollback){
+      const previous=rollback;rollback=null;const dying=proc;proc=null
+      Promise.resolve(dying?.done).then(async()=>{
+        recovered='新参数启动失败，已恢复上次可用配置：'+reason
+        await scope.update({config:previous.config,slot:previous.slot,mode:previous.mode,preset:previous.preset,action:null})
+        status='stopped';start(previous.slot,previous.mode,previous.preset)
+      }).catch(e=>{lastError='自动恢复失败：'+e.message;publishState()})
+    }
+  }
+
+  async function resolveCurl() {
+    if (curlPath) return curlPath
+    if (CFG.curlPath) { curlPath = CFG.curlPath; return curlPath }
+    try {
+      curlPath = await ctx.subprocess.resolveExecutable('curl')
+    } catch (e) {
+      curlPath = process.platform === 'win32' ? 'C:/Windows/System32/curl.exe' : 'curl'
+    }
+    return curlPath
+  }
+
+  function probeHealth() {
+    return resolveCurl().then((curl) => new Promise((resolve) => {
+      let h
+      const argv = [curl, '-s', '-m', '3']
+      if (CFG.apiKey) argv.push('-H', 'Authorization: Bearer ' + CFG.apiKey)
+      argv.push('http://127.0.0.1:' + CFG.port + '/health')
+      try {
+        h = ctx.subprocess.spawn({
+          argv,
+          cwd: CFG.llamaDir,
+          stdio: { stdin: 'ignore', stdout: { maxBytes: 4096 }, stderr: { maxBytes: 4096 } },
+          graceMs: 5000,
+        })
+      } catch (e) {
+        resolve(false)
+        return
+      }
+      h.done.then(() => {
+        const out = (h.collected.stdout ? h.collected.stdout.readFrom(0).text : '') || ''
+        resolve(out.indexOf('"ok"') >= 0)
+      }, () => resolve(false))
+    }), () => false)
+  }
+
+  /** Capture one helper process's stdout text (rejects on spawn failure). */
+  function runCapture(argv) {
+    return new Promise((resolve, reject) => {
+      let h
+      try {
+        h = ctx.subprocess.spawn({
+          argv,
+          cwd: CFG.llamaDir,
+          stdio: { stdin: 'ignore', stdout: { maxBytes: 65536 }, stderr: { maxBytes: 65536 } },
+          graceMs: 5000,
+        })
+      } catch (e) {
+        reject(e)
+        return
+      }
+      h.done.then(
+        () => resolve((h.collected.stdout ? h.collected.stdout.readFrom(0).text : '') || ''),
+        reject
+      )
+    })
+  }
+
+  /**
+   * Resolve the llama-server PID by asking the OS which process LISTENs on
+   * the configured port. The upgraded DSH subprocess handle keeps the child's
+   * identity provider-private (SubprocessHandle no longer exposes a pid
+   * field, and SubprocessOutcome carries only exit facts), so the port —
+   * which the start path just verified free — is the reliable marker: the
+   * listener on it IS the server we spawned. Returns null when the OS query
+   * is unavailable; the card then simply omits the PID.
+   */
+  async function resolveServerPid() {
+    try {
+      if (process.platform === 'win32') {
+        // Locale-independent primary: PowerShell TCP-table query.
+        try {
+          const ps = await ctx.subprocess.resolveExecutable('powershell')
+          const out = await runCapture([ps, '-NoProfile', '-NonInteractive', '-Command',
+            '(Get-NetTCPConnection -LocalPort ' + CFG.port + ' -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess'])
+          const n = parseInt(String(out).trim(), 10)
+          if (Number.isInteger(n) && n > 0) return n
+        } catch (e) { /* fall through to netstat */ }
+        // Fallback: netstat -ano (its LISTENING state word is English on the
+        // vast majority of locales; PowerShell above covers the rest).
+        const netstat = await ctx.subprocess.resolveExecutable('netstat')
+        const out = await runCapture([netstat, '-ano', '-p', 'tcp'])
+        const m = new RegExp(':' + CFG.port + '\\s+\\S+\\s+LISTENING\\s+(\\d+)').exec(String(out))
+        if (m) {
+          const n = parseInt(m[1], 10)
+          if (Number.isInteger(n) && n > 0) return n
+        }
+      } else {
+        try {
+          const lsof = await ctx.subprocess.resolveExecutable('lsof')
+          const out = await runCapture([lsof, '-t', '-i', 'TCP:' + CFG.port, '-s', 'TCP:LISTEN'])
+          const n = parseInt(String(out).trim().split(/\s+/)[0], 10)
+          if (Number.isInteger(n) && n > 0) return n
+        } catch (e) { /* no lsof: PID stays null */ }
+      }
+    } catch (e) {
+      note('pid resolve failed', e)
+    }
+    return null
+  }
+
+  /**
+   * Write (upsert) the SHARED provider `dsh-local` into llm-pi-ai from the
+   * CURRENT effective config — port, key, and one model entry per slot whose
+   * GGUF was chosen (id = the slot's derived alias; contextWindow from that
+   * slot's text:fast `-c`). Both slots serve from the same endpoint, so a
+   * single provider with two models keeps the DSH model picker honest.
+   * Triggered ONLY by the card's「添加到模型列表」button (no background/auto
+   * writes; the configurable-provider directory updates live, no DSH restart).
+   *
+   * The provider always carries an `authorization` header: pi-ai's
+   * OpenAI-completions client refuses any request without an API key or an
+   * Authorization header, even when the server itself accepts unauthenticated
+   * requests (getClientApiKey in @earendil-works/pi-ai). With no card key a
+   * harmless placeholder is used; llama-server ignores it unless it was
+   * started with a matching --api-key.
+   */
+  function syncProvidersToDsh() { syncProviderConfig() }
+
+  /**
+   * Sync the shared DSH provider (llm-pi-ai.providers.dsh-local) with the
+   * CURRENT effective config: baseURL port, authorization header (API key),
+   * and — when the running slot's model entry exists — its contextWindow from
+   * the active parameter group. Runs on every ready transition; changing the
+   * card's port/key just needs a stop+start, and the configurable-provider
+   * directory updates live (no DSH restart). Never creates the provider:
+   * registration is the card's「添加到模型列表」button only. Model id/name are
+   * left alone — the match key is the running slot's derived alias, so a
+   * rename on the models page survives the sync.
+   */
+  function syncProviderConfig() {
+    const sl = CFG.slots[slot]
+    const rows = sl && sl.presets[mode + ':' + preset]
+    if (!sl || !rows) return
+    const ctxValue = argValue(rows, '-c')
+    try {
+      const desc = ctx.settings.describe().find((d) => d.ns === CFG.settingsNs)
+      if (!desc) { note('provider sync: namespace ' + CFG.settingsNs + ' not registered'); return }
+      const section = (desc.user && typeof desc.user === 'object') ? desc.user : { providers: {} }
+      const providers = (section.providers && typeof section.providers === 'object' && !Array.isArray(section.providers))
+        ? section.providers
+        : {}
+      if (providers !== section.providers) section.providers = providers
+      const provider = providers[PROVIDER_KEY]
+      if (!provider || typeof provider !== 'object') { note('provider sync: missing provider ' + PROVIDER_KEY + ' (press「添加到模型列表」)'); return }
+      const changes = []
+      const newBase = 'http://127.0.0.1:' + CFG.port + '/v1'
+      if (provider.baseURL !== newBase) { provider.baseURL = newBase; changes.push('baseURL=' + newBase) }
+      const expectedAuth = 'Bearer ' + (CFG.apiKey || 'dsh-local-llm')
+      const curHeaders = (provider.headers && typeof provider.headers === 'object') ? provider.headers : {}
+      if (curHeaders.authorization !== expectedAuth) {
+        provider.headers = Object.assign({}, curHeaders, { authorization: expectedAuth })
+        changes.push('authorization header ' + expectedAuth)
+      }
+      if (sl.alias) {
+        const models = provider.models
+        if (Array.isArray(models)) {
+          const entry = models.find((m) => m && m.id === sl.alias)
+          if (entry) {
+            if (ctxValue && entry.contextWindow !== Number(ctxValue)) { entry.contextWindow = Number(ctxValue); changes.push('contextWindow=' + ctxValue) }
+          } else {
+            note('provider sync: ' + PROVIDER_KEY + ' has no model id "' + sl.alias + '" — press「添加到模型列表」after changing the slot model file')
+          }
+        } else {
+          note('provider sync: ' + PROVIDER_KEY + ' models shape unexpected; skipped')
+        }
+      }
+      const activeModel = provider.models?.find(m => m.id === sl.alias)
+      if (activeModel) {
+        activeModel.maxTokens = Number(argValue(rows, '--kvmem-gen-reserve') || 8192)
+        activeModel.reasoningEfforts = {low:'low',medium:'medium',high:'xhigh'}
+        activeModel.name = 'QQZ + KVMem ' + (Number(ctxValue)/1024) + 'K / MTP' + (argValue(rows,'--spec-draft-n-max') || '2')
+        changes.push('output and reasoning synchronized')
+      }
+      if (!changes.length) return
+      ctx.settings.replace(CFG.settingsNs, section)
+        .then(() => console.log('[local-llm] provider synced (' + PROVIDER_KEY + '): ' + changes.join(', ')))
+        .catch((e) => note('provider sync failed', e))
+    } catch (e) {
+      note('provider sync threw', e)
+    }
+  }
+
+  function start(m, mo, p) {
+    if(ctx.agents.list().some(a=>a.status==='running')) {lastError='请先结束 DSH 当前任务';publishState();return}
+
+    if (starting || status === 'starting' || status === 'ready' || status === 'stopping') return
+    CFG = resolveConfig() // re-read card/installer config before each launch
+    if (!CFG.llamaDir) {
+      status = 'error'
+      lastError = '未配置 llama.cpp 目录（卡片「配置」区必填）'
+      publishState()
+      return
+    }
+    let argv
+    try {
+      argv = buildArgv(m, mo, p)
+    } catch (e) {
+      status = 'error'
+      lastError = '模型文件解析失败: ' + ((e && e.message) || String(e))
+      publishState()
+      return
+    }
+    if (!argv) {
+      status = 'error'
+      lastError = '模槽 ' + m + ' 无可用的启动参数（' + mo + '/' + p + '）'
+      publishState()
+      return
+    }
+    console.log('[local-llm] spawn argv: ' + argv.join(' '))
+    starting = true
+    slot = m
+    mode = mo
+    preset = p
+    lastError = null
+    logTail = ''
+    serverPid = null
+    probeHealth().then(async (occupied) => {
+      if (occupied) {
+        status = 'error'
+        lastError = '端口 ' + CFG.port + ' 已有服务在运行（/health 返回 ok）'
+        publishState()
+        return
+      }
+      const conflicts = await runCapture(['C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe','-NoProfile','-Command',"Get-CimInstance Win32_Process | Where-Object {$_.Name -match '^(llama-server|llama-kvmem-server|ComfyUI)' -or ($_.Name -match '^python' -and $_.CommandLine -match 'ComfyUI.*main\\.py')} | Select-Object -ExpandProperty Name"])
+      if(conflicts.trim()) throw new Error('请先停止已有模型服务或 ComfyUI：'+conflicts.trim())
+      let h
+      try {
+        h = ctx.subprocess.spawn({
+          argv,
+          cwd: CFG.llamaDir,
+          stdio: { stdin: 'ignore', stdout: { maxBytes: 65536 }, stderr: { maxBytes: 65536 } },
+          graceMs: 8000,
+        })
+      } catch (e) {
+        status = 'error'
+        lastError = '启动失败: ' + ((e && e.message) || String(e))
+        publishState()
+        return
+      }
+      proc = h
+      status = 'starting'
+      publishState()
+      h.done.then((out) => {
+        if (status === 'starting') {
+          fail('llama-server 提前退出 (exit=' + out.exitCode + ', signal=' + out.signal + ')')
+        } else if (status === 'ready') {
+          status = 'stopped'
+          proc = null
+          lastError = 'llama-server 已退出 (exit=' + out.exitCode + ')'
+          publishState()
+        }
+      }, () => { /* noop */ })
+      beginPolling()
+    }).catch((e) => {
+      status = 'error'
+      lastError = '启动流程异常: ' + ((e && e.message) || String(e))
+      publishState()
+    }).finally(() => { starting = false })
+  }
+
+  function beginPolling() {
+    stopPolling()
+    let busy = false
+    let elapsed = 0
+    pollHandle = ctx.timer.interval(() => {
+      if (busy || status !== 'starting') return
+      busy = true
+      probeHealth().then((ok) => {
+        busy = false
+        if (status !== 'starting') return
+        elapsed += POLL_MS
+        if (ok) {
+          stopPolling()
+          status = 'ready'
+          lastGood={config:JSON.parse(JSON.stringify(CFG)),slot,mode,preset};rollback=null
+          if(recovered){lastError=recovered;recovered=null}
+          syncProviderConfig()
+          publishState()
+          // The subprocess handle no longer exposes the child's pid — resolve
+          // it from the port listener and republish so the card shows a real
+          // PID instead of null. Readiness is published first (above); this
+          // only fills the pid in.
+          resolveServerPid().then((pid) => {
+            if (pid != null && status === 'ready' && proc) {
+              serverPid = pid
+              publishState()
+            }
+          }).catch(() => {})
+        } else if (elapsed >= READY_TIMEOUT_MS) {
+          fail('启动超时（' + (READY_TIMEOUT_MS / 1000) + 's 未就绪）')
+        }
+      })
+    }, POLL_MS)
+  }
+
+  function stop() {
+    if(ctx.agents.list().some(a=>a.status==='running')) {lastError='请先结束 DSH 当前任务';publishState();return}
+
+    if (status === 'stopped' || status === 'stopping') return
+    status = 'stopping'
+    stopPolling()
+    const h = proc
+    proc = null
+    serverPid = null
+    publishState()
+    if (!h) {
+      status = 'stopped'
+      publishState()
+      return
+    }
+    try { h.terminate() } catch (e) { /* noop */ }
+    Promise.race([
+      h.done.then(() => { status = 'stopped'; publishState() }),
+      ctx.timer.timeout(10000).then(() => { if (status === 'stopping') { status = 'stopped'; publishState() } }),
+    ])
+  }
+
+  // ---- boot state reconciliation ----
+  // This process owns no child handle yet; a persisted 'running/starting/
+  // stopping' status belongs to the previous DSH session (whose process tree
+  // is already gone — DSH shutdown force-terminates what it spawned), so
+  // publishing the clean stopped state once reparses the document. Without
+  // it the card keeps showing a dead process as running (Start disabled,
+  // Stop a no-op, the plugin looks 'broken').
+  publishState()
+  ctx.timer.timeout(1500).then(()=>start(slot,mode,preset))
+
+  // ---- action channel ----
+  // An action is a one-shot command: once dispatched it is cleared from the
+  // raw layer immediately (consume-and-clear). Relying on publishState alone
+  // left a stale `action` in the raw layer for branches that never transition
+  // start/stop (add-providers), so the very next local-llm commit — e.g. a
+  // slot bubble click → scope.set('slot', ...) — re-delivered the action and
+  // re-ran the branch. The clear write re-enters this handler with
+  // action === null and is a no-op by design.
+  ctx.on('settings/updated', (ns, next) => {
+    if (ns !== 'local-llm') return
+    const action = next && next.action
+    if (action === 'restart') {
+      if(ctx.agents.list().some(a=>a.status==='running')) {lastError='请先结束 DSH 当前任务';publishState();return}
+      try{validateKvmemRows(resolveConfig().slots[next.slot].presets[next.mode+':'+next.preset])}catch(e){lastError=e.message;publishState();return}
+      rollback=lastGood
+      const oldProc=proc;stop();
+      Promise.resolve(oldProc?.done).then(()=>start(next.slot,next.mode,next.preset));
+    } else if (action === 'start') {
+      const m = next.slot === 'b' ? 'b' : 'a'
+      const mo = next.mode === 'vision' ? 'vision' : 'text'
+      const p = next.preset === 'long' ? 'long' : 'fast'
+      start(m, mo, p)
+    } else if (action === 'add-providers') {
+      syncProvidersToDsh()
+    } else if (action === 'stop') {
+      stop()
+    } else if (next && next.config && typeof next.config === 'object') {
+      // Config edit (card「保存配置」): re-resolve the effective config so the
+      // enumeration published to the card form (slots.<key>.files) follows the
+      // folder the user just saved, then re-publish. The deep compare stops
+      // the write-back (publishState → settings/updated → same config) from
+      // ping-ponging.
+      const fresh = resolveConfig()
+      if (JSON.stringify(fresh) !== JSON.stringify(CFG)) {
+        CFG = fresh
+        publishState()
+      }
+    }
+    if (action === 'restart' || action === 'start' || action === 'stop' || action === 'add-providers') {
+      scope.update({ action: null }).catch((e) => note('action clear failed', e))
+    }
+  })
+
+  // ---- lifecycle ----
+  ctx.effect(() => () => {
+    stopPolling()
+    if (proc) { try { proc.terminate() } catch (e) { /* noop */ } }
+  })
+}

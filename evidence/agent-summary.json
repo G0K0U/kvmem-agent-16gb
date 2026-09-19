@@ -1,0 +1,12 @@
+{
+  "configured_context": 65536,
+  "gpu_vram_gb": 16,
+  "system_ram_gb": 32,
+  "output_tokens": 12874,
+  "decode_seconds": 401.745,
+  "weighted_decode_tokens_per_second": 32.05,
+  "max_input_tokens": 26644,
+  "max_total_tokens": 26966,
+  "cumulative_tokens": 239728,
+  "source": "Prior local report timing audit; usage independently re-extracted. No new inference benchmark."
+}

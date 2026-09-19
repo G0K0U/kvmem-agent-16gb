@@ -1,0 +1,94 @@
+{
+  "completed": [
+    {
+      "prompt": 353,
+      "output": 120,
+      "elapsed": 6.92,
+      "tps": 20.39
+    },
+    {
+      "prompt": 8481,
+      "output": 77,
+      "elapsed": 16.62,
+      "tps": 19.88
+    },
+    {
+      "prompt": 16651,
+      "output": 185,
+      "elapsed": 25.37,
+      "tps": 17.17
+    },
+    {
+      "prompt": 24821,
+      "output": 159,
+      "elapsed": 24.9,
+      "tps": 17.15
+    },
+    {
+      "prompt": 32991,
+      "output": 55,
+      "elapsed": 19.87,
+      "tps": 19.47
+    },
+    {
+      "prompt": 41161,
+      "output": 46,
+      "elapsed": 39.14,
+      "tps": 18.77
+    },
+    {
+      "prompt": 49331,
+      "output": 40,
+      "elapsed": 37.16,
+      "tps": 19.25
+    },
+    {
+      "prompt": 57501,
+      "output": 512,
+      "elapsed": 70.68,
+      "tps": 16.64
+    },
+    {
+      "prompt": 65671,
+      "output": 63,
+      "elapsed": 40.21,
+      "tps": 16.62
+    },
+    {
+      "prompt": 73841,
+      "output": 93,
+      "elapsed": 42.19,
+      "tps": 17.75
+    },
+    {
+      "prompt": 90147,
+      "output": 38,
+      "elapsed": 62.95,
+      "tps": 17.59
+    },
+    {
+      "prompt": 106495,
+      "output": 38,
+      "elapsed": 72.99,
+      "tps": 18.08
+    },
+    {
+      "prompt": 122843,
+      "output": 46,
+      "elapsed": 76.78,
+      "tps": 14.09
+    },
+    {
+      "prompt": 139191,
+      "output": 80,
+      "elapsed": 77.9,
+      "tps": 19.37
+    },
+    {
+      "prompt": 155539,
+      "output": 35,
+      "elapsed": 79.28,
+      "tps": 17.49
+    }
+  ]
+}

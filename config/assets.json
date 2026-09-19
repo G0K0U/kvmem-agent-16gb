@@ -1,0 +1,26 @@
+[
+  {
+    "name": "runtime",
+    "file": "kvmem-v0.16.0-rc2-windows-x86_64-cuda13.2.86.zip",
+    "url": "https://github.com/kvmem/kvmem-llama.cpp/releases/download/v0.16.0-rc2/kvmem-v0.16.0-rc2-windows-x86_64-cuda13.2.86.zip",
+    "sha256": "2832f6b81c425a894521fd6ba1ed6f8f12d83b6ad5b2bb837631c77a54051278"
+  },
+  {
+    "name": "desktop",
+    "file": "DSH-Desktop-Beta-2.0.12-beta.1-x64-Setup.exe",
+    "url": "https://github.com/anywhere-labs/dsh-desktop/releases/download/v2.0.12-beta.1/DSH-Desktop-Beta-2.0.12-beta.1-x64-Setup.exe",
+    "sha256": "a205bf1a91431e9418613bd85d970fff622e9aba09d1bed124b5126178de0119"
+  },
+  {
+    "name": "model",
+    "file": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
+    "url": "https://huggingface.co/QQZ2026/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-MTP-GGUF/resolve/e45b6a3a3c137c11df9da4a79cfae82fdd7faaa3/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
+    "sha256": "f6c1f6e1211aeceaa386cbeabd0bdfbee0d124747ecaa3e908a93394518e9274"
+  },
+  {
+    "name": "vision",
+    "file": "mmproj-Qwen3.8-27B-F16.gguf",
+    "url": "https://huggingface.co/QQZ2026/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-MTP-GGUF/resolve/e45b6a3a3c137c11df9da4a79cfae82fdd7faaa3/mmproj-Qwen3.8-27B-F16.gguf",
+    "sha256": "71101eb61e223e70e58b762c596f5303b63a91aec45fd9cdc5dad5592377f2ee"
+  }
+]

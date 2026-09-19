@@ -1,0 +1,53 @@
+{
+  "name": "dsh-local-llm-controller",
+  "version": "2.0.4-kvmem.1",
+  "description": "DSH plugin: start/stop a local llama.cpp llama-server from the settings \u2192 plugins page \u2014 two model slots (A/B) with per-slot model-file selection, eight editable launch-parameter groups (text/vision \u00d7 fast/long \u00d7 2 slots), and one shared DSH provider carrying both slots' models with four thinking-effort levels.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/logic.test.mjs test/kvmem.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lbunc/dsh-local-llm-controller.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "dsh",
+    "cordis",
+    "llama.cpp",
+    "llama-server",
+    "local-llm",
+    "qwen"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.1.5-rc.1 || 0.1.6-alpha.2",
+    "@deepseek-ai/dsh-client-locale": "^0.1.5-rc.1 || 0.1.6-alpha.2"
+  },
+  "license": "MIT"
+}

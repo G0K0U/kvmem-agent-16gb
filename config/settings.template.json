@@ -1,0 +1,338 @@
+{
+  "agent-default-model": {
+    "provider": "qqz-kvmem",
+    "model": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
+    "reasoningEffort": "high"
+  },
+  "permission": {
+    "defaultPreset": "workspace-write"
+  },
+  "llm-pi-ai": {
+    "providers": {
+      "qqz-kvmem": {
+        "displayName": "QQZ + KVMem Local",
+        "api": "openai-completions",
+        "apiKeyEnv": "QQZ_LOCAL_API_KEY",
+        "baseURL": "http://127.0.0.1:18200/v1",
+        "timeoutMs": 600000,
+        "streamIdleTimeoutMs": 300000,
+        "compat": {
+          "supportsStore": false,
+          "supportsDeveloperRole": false,
+          "supportsReasoningEffort": true,
+          "maxTokensField": "max_tokens",
+          "thinkingFormat": "deepseek"
+        },
+        "models": [
+          {
+            "id": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
+            "name": "QQZ + KVMem 64K / MTP2",
+            "contextWindow": 65536,
+            "maxTokens": 8192,
+            "input": [
+              "text",
+              "image"
+            ],
+            "reasoningEfforts": {
+              "low": "low",
+              "medium": "medium",
+              "high": "xhigh"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "dsh-desktop": {
+    "port": 43189
+  },
+  "local-llm": {
+    "slot": "a",
+    "mode": "vision",
+    "preset": "fast",
+    "config": {
+      "llamaDir": "__RUNTIME_BIN__",
+      "serverExe": "llama-kvmem-server.exe",
+      "port": 18200,
+      "apiKey": "",
+      "settingsNs": "llm-pi-ai",
+      "slots": {
+        "a": {
+          "dir": "__MODELS_DIR__",
+          "file": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
+          "mmproj": "mmproj-Qwen3.8-27B-F16.gguf",
+          "presets": {
+            "text:fast": [
+              {
+                "flag": "-b",
+                "value": "256"
+              },
+              {
+                "flag": "-ngl",
+                "value": "999"
+              },
+              {
+                "flag": "-c",
+                "value": "65536"
+              },
+              {
+                "flag": "-n",
+                "value": "8192"
+              },
+              {
+                "flag": "--kvmem-budget",
+                "value": "32768"
+              },
+              {
+                "flag": "--kvmem-gen-reserve",
+                "value": "8192"
+              },
+              {
+                "flag": "--kvmem-block-tokens",
+                "value": "128"
+              },
+              {
+                "flag": "-ctk",
+                "value": "q5_0"
+              },
+              {
+                "flag": "-ctv",
+                "value": "q5_0"
+              },
+              {
+                "flag": "--spec-type",
+                "value": "draft-mtp"
+              },
+              {
+                "flag": "--spec-draft-n-max",
+                "value": "2"
+              },
+              {
+                "flag": "--spec-kv-dtype",
+                "value": "f16"
+              },
+              {
+                "flag": "--kvmem-mtp-state",
+                "value": "replay"
+              },
+              {
+                "flag": "--enable-thinking",
+                "value": ""
+              },
+              {
+                "flag": "--reasoning-effort",
+                "value": "medium"
+              },
+              {
+                "flag": "--reasoning-budget",
+                "value": "4096"
+              }
+            ],
+            "vision:fast": [
+              {
+                "flag": "-b",
+                "value": "256"
+              },
+              {
+                "flag": "-ngl",
+                "value": "999"
+              },
+              {
+                "flag": "-c",
+                "value": "65536"
+              },
+              {
+                "flag": "-n",
+                "value": "8192"
+              },
+              {
+                "flag": "--kvmem-budget",
+                "value": "32768"
+              },
+              {
+                "flag": "--kvmem-gen-reserve",
+                "value": "8192"
+              },
+              {
+                "flag": "--kvmem-block-tokens",
+                "value": "128"
+              },
+              {
+                "flag": "-ctk",
+                "value": "q5_0"
+              },
+              {
+                "flag": "-ctv",
+                "value": "q5_0"
+              },
+              {
+                "flag": "--spec-type",
+                "value": "draft-mtp"
+              },
+              {
+                "flag": "--spec-draft-n-max",
+                "value": "2"
+              },
+              {
+                "flag": "--spec-kv-dtype",
+                "value": "f16"
+              },
+              {
+                "flag": "--kvmem-mtp-state",
+                "value": "replay"
+              },
+              {
+                "flag": "--enable-thinking",
+                "value": ""
+              },
+              {
+                "flag": "--reasoning-effort",
+                "value": "medium"
+              },
+              {
+                "flag": "--reasoning-budget",
+                "value": "4096"
+              }
+            ],
+            "text:long": [
+              {
+                "flag": "-b",
+                "value": "256"
+              },
+              {
+                "flag": "-ngl",
+                "value": "999"
+              },
+              {
+                "flag": "-c",
+                "value": "131072"
+              },
+              {
+                "flag": "-n",
+                "value": "8192"
+              },
+              {
+                "flag": "--kvmem-budget",
+                "value": "32768"
+              },
+              {
+                "flag": "--kvmem-gen-reserve",
+                "value": "8192"
+              },
+              {
+                "flag": "--kvmem-block-tokens",
+                "value": "128"
+              },
+              {
+                "flag": "-ctk",
+                "value": "q5_0"
+              },
+              {
+                "flag": "-ctv",
+                "value": "q5_0"
+              },
+              {
+                "flag": "--spec-type",
+                "value": "draft-mtp"
+              },
+              {
+                "flag": "--spec-draft-n-max",
+                "value": "2"
+              },
+              {
+                "flag": "--spec-kv-dtype",
+                "value": "f16"
+              },
+              {
+                "flag": "--kvmem-mtp-state",
+                "value": "replay"
+              },
+              {
+                "flag": "--enable-thinking",
+                "value": ""
+              },
+              {
+                "flag": "--reasoning-effort",
+                "value": "medium"
+              },
+              {
+                "flag": "--reasoning-budget",
+                "value": "4096"
+              }
+            ],
+            "vision:long": [
+              {
+                "flag": "-b",
+                "value": "256"
+              },
+              {
+                "flag": "-ngl",
+                "value": "999"
+              },
+              {
+                "flag": "-c",
+                "value": "131072"
+              },
+              {
+                "flag": "-n",
+                "value": "8192"
+              },
+              {
+                "flag": "--kvmem-budget",
+                "value": "32768"
+              },
+              {
+                "flag": "--kvmem-gen-reserve",
+                "value": "8192"
+              },
+              {
+                "flag": "--kvmem-block-tokens",
+                "value": "128"
+              },
+              {
+                "flag": "-ctk",
+                "value": "q5_0"
+              },
+              {
+                "flag": "-ctv",
+                "value": "q5_0"
+              },
+              {
+                "flag": "--spec-type",
+                "value": "draft-mtp"
+              },
+              {
+                "flag": "--spec-draft-n-max",
+                "value": "2"
+              },
+              {
+                "flag": "--spec-kv-dtype",
+                "value": "f16"
+              },
+              {
+                "flag": "--kvmem-mtp-state",
+                "value": "replay"
+              },
+              {
+                "flag": "--enable-thinking",
+                "value": ""
+              },
+              {
+                "flag": "--reasoning-effort",
+                "value": "medium"
+              },
+              {
+                "flag": "--reasoning-budget",
+                "value": "4096"
+              }
+            ]
+          }
+        },
+        "b": {
+          "dir": "",
+          "file": ""
+        }
+      }
+    }
+  }
+}

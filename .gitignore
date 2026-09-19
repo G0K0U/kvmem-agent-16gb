@@ -1,0 +1,12 @@
+local/
+downloads/
+node_modules/
+*.gguf
+*.exe
+*.dll
+*.zip
+.env
+.credentials*
+*.log
+*.zstd
+sessions/
