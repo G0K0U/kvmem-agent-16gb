@@ -20,3 +20,17 @@
 
 未验证:完整 `Deploy.ps1` 端到端流程未重新执行(避免中断当时正在使用的模型服务),空白机器完整安装仍未进行。脚本失败时会给出明确错误与手动回退路径;手动部署流程(`Configure.ps1` 直调)保持原样可用。
 
+
+## 2026-09-20 追加:compaction-replay-fix(压缩回放失败修复)
+
+问题:长会话在上下文压缩时报 `multimodal query replay failed or cancelled` 并中断。溯源:错误字符串来自 KVMem 服务端二进制(`kvmem-llama.cpp` v0.16.0-rc2,`tools/kvmem-multimodal-server.h`),在 `query_replay` 路径中,回放不做槽位安置而检索选择按预算从新到旧截断,未缓存跨度超过预算时首个回放分块即失败(`block N has no GPU slot`);DSH 侧压缩摘要把整个前导区域作为单个巨型请求发送,且请求错误恢复不识别该错误。
+
+修复(`patches/compaction-replay-fix/`,仅 DSH 侧):分段 map-reduce 摘要器(>16K 估计 token 时按 ≤8K 分段,每个分段请求以合成 `[compaction segment i/N]` 标记在浅层断开前缀缓存,不触碰深层驻留 KV;不再携带工具 schema),reduce 合并分段笔记输出标准检查点;`query replay failed or cancelled` 类失败现按上下文溢出处理(压缩后重试)。用户取消语义不变。
+
+验证(RTX 4080 16GB / 128K / KV32K / reserve8K / MTP2,同一 headless 工作负载五个 ~100KB 文件读取):
+
+- 基线(原 DSH + 原服务端):复现失败,turn 1 step 2 报错,服务端日志 correlated(`block 82 has no GPU slot`,`mandatory_trim kept=255 dropped=200`,回滚)。
+- 补丁 DSH + 原服务端(端口 18201 与生产 18200 各一轮):从回放错误中恢复(回滚+重试),压缩成功提交(会话日志含 `compacted-summary`),上下文从 ~110K 降至 ~14.7K;压缩后 Agent 继续执行 10 次 `read` 与 2 次 `pwsh` 工具调用并给出正确汇总。
+- 回归测试 10/10 通过(`test/compaction-chunk.test.mjs`:小区域保持单请求、分段请求尺寸上界、工具对不跨段拆分、取消、图像输出拒绝、错误传播、自愈路径、普通错误与用户取消不受影响)。
+
+未验证/边界:服务端 C++ 流式修复(在 `prepare_ubatches` 中做回放槽位安置与回收)已原型化但**未随本补丁发布**——中途回收后 MTP 草稿(`common_speculative_process`)失败,需要上游对草稿镜像不变式做出决策;补丁保持哈希校验锁定 0.1.6-alpha.2,上游升级后需重新推导。192K/256K、视觉内容压缩、多实例并发未测。本修复不改变任何 KVMem 启动参数、模型或上下文配置。

@@ -1,0 +1,259 @@
+--- dsh-compaction-basic/lib/index.js.orig	2026-09-20 13:16:38.094539000 +1000
++++ dsh-compaction-basic/lib/index.js	2026-09-20 13:57:07.962027500 +1000
+@@ -255,6 +255,193 @@
+ ].join("\n");
+ /** Framing that makes the replacement user message established context. */
+ const CHECKPOINT_PREAMBLE = "This is an automatically generated checkpoint condensing an earlier span of the conversation to free up context. Treat the captured context as established background and build on it without restating it. Continue the task directly from the messages that follow, without acknowledging this checkpoint.";
++/** Estimated-token ceiling above which the summarizer chunks the region into segment calls.
++*
++* The default single-call summarizer replays the whole leading region as one
++* request so the provider's KV prefix cache is reused. On the local KVMem
++* llama.cpp server, a request whose uncached span (rows after the last
++* checkpoint) is wider than the GPU slot working set (`--kvmem-budget`, 32768
++* tokens here) fails mid-replay with "multimodal query replay failed or
++* cancelled" and the compaction is lost. Below this threshold the warm-prefix
++* single call is kept; above it the region is summarized in small segments
++* whose requests stay far inside the provider's resident window. */
++const CHUNKED_INPUT_THRESHOLD = 16384;
++/** Estimated-token budget for one map segment and for one reduce note group. */
++const SEGMENT_BUDGET = 8192;
++/** Prefix of the synthetic user marker that breaks provider prefix-cache matching at a shallow depth. */
++const SEGMENT_MARKER_PREFIX = "[compaction segment ";
++/** Segment summarization instruction (map stage). */
++const SEGMENT_INSTRUCTION = [
++	"This message is segment {INDEX} of {COUNT} of one long coding-agent conversation, shown in slices so each request stays small.",
++	"Condense THIS segment into terse engineering notes for a later merge step.",
++	"Preserve: the user's requests and feedback, exact file paths, commands, error strings, identifiers, numeric values, function signatures, decisions and their rationale, and pending work.",
++	"Do not call any tool. Output plain Markdown notes only."
++].join("\n");
++/** Reduce-stage header shown before the merged segment notes. */
++const SEGMENT_NOTES_HEADER = "These notes are sequential segment summaries of one long coding-agent conversation. Merge them into the final checkpoint.";
++/** Provider failure text identifying the local KVMem query-replay capacity failure. */
++const QUERY_REPLAY_CAPACITY_PATTERN = /query replay failed or cancelled/i;
++/** Price a message list under the token meter heuristic. */
++function estimateMessagesTokens(meter, messages) {
++	let total = 0;
++	for (const message of messages) total += meter.estimateMessage(message);
++	return total;
++}
++/** True for messages that must stay with their assistant tool-call message. */
++function carriesToolResults(message) {
++	if (message.role !== "user") return false;
++	return message.content.some((block) => block.type === "tool-result");
++}
++/** Split messages into segments of at most budget estimated tokens without separating a tool pair. */
++function splitIntoSegments(meter, messages, budget) {
++	const segments = [];
++	let current = [];
++	let currentTokens = 0;
++	for (const message of messages) {
++		const tokens = meter.estimateMessage(message);
++		if (current.length > 0 && currentTokens + tokens > budget && !carriesToolResults(message)) {
++			segments.push(current);
++			current = [];
++			currentTokens = 0;
++		}
++		current.push(message);
++		currentTokens += tokens;
++	}
++	if (current.length > 0) segments.push(current);
++	return segments;
++}
++/** Sum per-call usage when every call reported usage; otherwise omit it. */
++function sumUsages(usages) {
++	if (usages.length === 0) return void 0;
++	for (const usage of usages) if (usage === void 0) return void 0;
++	const totals = {};
++	for (const usage of usages) for (const key of Object.keys(usage)) {
++		if (typeof usage[key] === "number") totals[key] = (totals[key] ?? 0) + usage[key];
++	}
++	return Object.keys(totals).length > 0 ? totals : void 0;
++}
++/**
++* Run one summarization `ctx.llm.stream()` call and return its safe text output.
++* @returns the text-only blocks, their joined text, and the reported usage.
++*/
++async function runSummarizerStream(ctx, target, options, instruction) {
++	const assembler = new BlockAssembler();
++	const messages = [...options.messages, createUserMessage({
++		content: [{ type: "text", text: instruction }],
++		source: { kind: "plugin", plugin: "dsh-compaction-basic" }
++	})];
++	const streamOptions = {
++		provider: target.provider,
++		model: target.model,
++		messages,
++		...options.tools === void 0 ? {} : { tools: [...options.tools] },
++		maxTokens: options.maxTokens,
++		sessionId: options.sessionId,
++		purpose: "compaction",
++		...options.signal === void 0 ? {} : { signal: options.signal }
++	};
++	for await (const chunk of ctx.llm.stream(streamOptions)) assembler.push(chunk);
++	const error = finishError(assembler.finish);
++	if (error !== void 0) throw error;
++	const blocks = summaryText(assembler.blocks());
++	const text = blocks.map((block) => block.text).join("\n\n").trim();
++	if (text.length === 0) throw new Error("summarization produced no text summary content");
++	return {
++		text,
++		blocks,
++		...options.usageCollector === void 0 ? {} : { usage: (options.usageCollector.push(assembler.usage), assembler.usage) }
++	};
++}
++/**
++* Reduce segment notes toward the final checkpoint, grouping recursively when
++* the notes themselves are too wide for one safe request.
++*/
++async function reduceSegmentNotes(ctx, config, agent, target, signal, system, notes, collector, depth = 0) {
++	if (depth > 6) throw new Error("segment-note reduction did not converge");
++	const meter = ctx.tokenMeter;
++	const noteMessages = notes.map((note, index) => createUserMessage({
++		content: [{ type: "text", text: `[segment ${index + 1}/${notes.length} notes]\n\n${note}` }],
++		source: { kind: "plugin", plugin: "dsh-compaction-basic" }
++	}));
++	if (estimateMessagesTokens(meter, noteMessages) > SEGMENT_BUDGET) {
++		const groups = splitIntoSegments(meter, noteMessages, SEGMENT_BUDGET);
++		const merged = [];
++		for (const group of groups) {
++			signal?.throwIfAborted();
++			const groupNotes = group.map((message) => message.content[0].text.replace(/^\[segment [^\]]*\]\n\n/, ""));
++			const call = await reduceSegmentNotes(ctx, config, agent, target, signal, system, groupNotes, collector, depth + 1);
++			merged.push(call.text);
++		}
++		return reduceSegmentNotes(ctx, config, agent, target, signal, system, merged, collector, depth + 1);
++	}
++	const header = createUserMessage({
++		content: [{ type: "text", text: SEGMENT_NOTES_HEADER }],
++		source: { kind: "plugin", plugin: "dsh-compaction-basic" }
++	});
++	const messages = [...system === null ? [] : [system], header, ...noteMessages];
++	return await runSummarizerStream(ctx, target, {
++		messages,
++		maxTokens: config.maxTokens,
++		sessionId: agent.session.id,
++		signal,
++		usageCollector: collector
++	}, COMPACTION_INSTRUCTION);
++}
++/**
++* Chunked map-reduce summarization for regions exceeding
++* CHUNKED_INPUT_THRESHOLD. Map: one small request per segment, each starting
++* with a synthetic marker message so the provider's prefix cache breaks at a
++* shallow depth instead of replaying deep host-resident KV rows. Reduce: the
++* standard compaction instruction over the segment notes. Tools are omitted:
++* the summarizer never calls them and dropping the schemas keeps every request
++* far inside the provider's resident window at any conversation depth.
++*/
++async function summarizeChunked(ctx, config, input, agent, target, signal) {
++	const meter = ctx.tokenMeter;
++	const system = input.messages.length > 0 && input.messages[0].role === "system" ? input.messages[0] : null;
++	const body = system === null ? [...input.messages] : input.messages.slice(1);
++	const segments = splitIntoSegments(meter, body, SEGMENT_BUDGET);
++	const collector = [];
++	const notes = [];
++	for (let index = 0; index < segments.length; index += 1) {
++		signal?.throwIfAborted();
++		const marker = createUserMessage({
++			content: [{ type: "text", text: `${SEGMENT_MARKER_PREFIX}${index + 1}/${segments.length}]` }],
++			source: { kind: "plugin", plugin: "dsh-compaction-basic" }
++		});
++		const messages = [...system === null ? [] : [system], marker, ...segments[index]];
++		const call = await runSummarizerStream(ctx, target, {
++			messages,
++			maxTokens: config.maxTokens,
++			sessionId: agent.session.id,
++			signal,
++			usageCollector: collector
++		}, SEGMENT_INSTRUCTION.replaceAll("{INDEX}", String(index + 1)).replaceAll("{COUNT}", String(segments.length)));
++		notes.push(call.text);
++	}
++	const final = await reduceSegmentNotes(ctx, config, agent, target, signal, system, notes, collector);
++	return {
++		summary: final.blocks,
++		rawOutput: final.blocks,
++		llmStreamCall: true,
++		provider: target.provider,
++		model: target.model,
++		maxTokens: config.maxTokens,
++		...sumUsages(collector) === void 0 ? {} : { usage: sumUsages(collector) }
++	};
++}
++/** Recognize failures that mean the conversation no longer fits the provider's usable context.
++*
++* Besides the canonical context-window wording this includes the KVMem
++* query-replay failure raised by the local llama.cpp server when a deep
++* conversation's uncached span cannot be re-materialized into its GPU slot
++* budget; recovering it through compaction turns a dead turn into a compacted,
++* continuing session instead of an unrecoverable request error. */
++function isContextCapacityFailure(failure) {
++	if (failure.code === CONTEXT_WINDOW_EXCEEDED_CODE) return true;
++	const message = typeof failure.message === "string" ? failure.message : String(failure ?? "");
++	return QUERY_REPLAY_CAPACITY_PATTERN.test(message);
++}
+ /**
+ * Run the default cache-reusing `ctx.llm.stream()` summarization call: replay
+ * the conversation prefix, then append the compaction instruction as the final
+@@ -278,41 +465,23 @@
+ 	} : void 0;
+ 	const target = configured ?? latest ?? agentTarget;
+ 	if (target === void 0) throw new Error("no provider/model available for summarization: set both BasicCompactionConfig summarization fields, route one request, or set both AgentOptions fields");
+-	const assembler = new BlockAssembler();
+-	const messages = [...input.messages, createUserMessage({
+-		content: [{
+-			type: "text",
+-			text: COMPACTION_INSTRUCTION
+-		}],
+-		source: {
+-			kind: "plugin",
+-			plugin: "dsh-compaction-basic"
+-		}
+-	})];
+-	const options = {
+-		provider: target.provider,
+-		model: target.model,
+-		messages,
+-		...input.tools === void 0 ? {} : { tools: [...input.tools] },
++	const meter = ctx.tokenMeter;
++	if (estimateMessagesTokens(meter, input.messages) > CHUNKED_INPUT_THRESHOLD) return summarizeChunked(ctx, config, input, agent, target, signal);
++	const call = await runSummarizerStream(ctx, target, {
++		messages: [...input.messages],
++		tools: input.tools,
+ 		maxTokens: config.maxTokens,
+ 		sessionId: agent.session.id,
+-		purpose: "compaction",
+-		...signal === void 0 ? {} : { signal }
+-	};
+-	for await (const chunk of ctx.llm.stream(options)) assembler.push(chunk);
+-	const error = finishError(assembler.finish);
+-	if (error !== void 0) throw error;
+-	const rawOutput = assembler.blocks();
+-	const summary = summaryText(rawOutput);
+-	if (!summary.some((block) => block.text.trim().length > 0)) throw new Error("summarization produced no text summary content");
++		signal
++	}, COMPACTION_INSTRUCTION);
+ 	return {
+-		summary,
+-		rawOutput,
++		summary: call.blocks,
++		rawOutput: call.blocks,
+ 		llmStreamCall: true,
+-		provider: options.provider,
+-		model: options.model,
++		provider: target.provider,
++		model: target.model,
+ 		maxTokens: config.maxTokens,
+-		...assembler.usage === void 0 ? {} : { usage: assembler.usage }
++		...call.usage === void 0 ? {} : { usage: call.usage }
+ 	};
+ }
+ /**
+@@ -826,7 +995,7 @@
+ 			if (agent !== void 0) this.overflowRetries.delete(agent);
+ 		});
+ 		ctx.on("agent/request-error", async ({ agent, failure, signal }, next) => {
+-			if (failure.code !== CONTEXT_WINDOW_EXCEEDED_CODE || signal.aborted) return next();
++			if (!isContextCapacityFailure(failure) || signal.aborted) return next();
+ 			this.overflowAgents.set(agent.session, agent);
+ 			const target = routedTarget(agent.session);
+ 			if (target === void 0) return next();

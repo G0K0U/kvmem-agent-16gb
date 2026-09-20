@@ -168,6 +168,12 @@ The slots are model-agnostic; the pinned default is a convenience, not a require
 - Vision parsing, screenshot understanding and generic desktop clicking have known failures. Computer Use's non-JSON output, approval-mode and repeated-observation problems are outside this stable default path.
 - Switching context/budget can exhaust memory. On a startup error, restore 64K / 32768 / MTP2 and check the panel logs; do not keep launching more model processes.
 
+## Fixed: compaction replay failure
+
+Long sessions used to die at context compaction with `This turn failed "multimodal query replay failed or cancelled"`. Root cause (verified in source and reproduced on the real stack): the KVMem server's query replay performs no slot placement while its retrieval selection is budget-capped newest-first, so any request whose uncached span exceeds the budget — a large tool result, or the compaction summarizer replaying the whole leading region — fails at depth; and DSH's compaction sent exactly that giant request with no recovery path.
+
+Shipped fix (DSH-side patch, no server/model/config changes): [patches/compaction-replay-fix](patches/compaction-replay-fix) — a chunked map-reduce summarizer (small segment requests that never touch deep host-resident KV) plus replay-failure self-healing (compaction + retry instead of a dead turn). Installed with one hash-pinned script; 10 regression tests included. Validated end-to-end on the 128K preset: compaction committed at depth and the agent continued with `read` + shell tool calls on the compacted context. A server-side streaming fix for KVMem's replay path itself was prototyped but not shipped — it needs an upstream decision on the MTP draft mirror.
+
 ## Verification & license
 
 Plugin tests:
