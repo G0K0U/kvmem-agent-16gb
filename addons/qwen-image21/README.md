@@ -66,7 +66,7 @@ The interface accepts up to 16 references; real tests covered one and two. CPU t
 
 [Sanitized validation record](../../evidence/qwen-image21-validation.json). Real desktop checks: advanced T2I, two-reference I2I, and a Bonsai-originated single-image edit with temporary Qwen rewriting all generated files, restored the original model and completed the final chat reply. Basic generation had previously passed with Heretic, IQ3, QQZ and Bonsai. Advanced IQ3/QQZ runs were not repeated. Cancellation recovery has unit coverage; live cancellation during sampling was not tested.
 
-**The controller now includes Bonsai/NInfer integration, but the custom engine and converted artifact remain separate prerequisites.** Follow [the Bonsai guide](../../docs/BONSAI.md) and [full deployment guide](../../docs/DEPLOYMENT.zh-CN.md). This add-on does not download or build that engine.
+**The controller now includes Bonsai/NInfer integration, but the custom engine and converted artifact remain separate prerequisites.** Follow [the Bonsai guide](../../docs/BONSAI.en.md) and [full deployment guide](../../docs/DEPLOYMENT.md). This add-on does not download or build that engine.
 
 The portable installer was validated with syntax, configuration and transaction tests; a second clean-machine CUDA installation has not been performed. The real images were generated on the original desktop deployment. These are distinct validation scopes.
 

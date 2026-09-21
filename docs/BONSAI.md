@@ -1,5 +1,7 @@
 # 第四个可选模型：Bonsai / NInfer
 
+[English](BONSAI.en.md) | [**简体中文**](BONSAI.md)
+
 Bonsai 不使用 KVMem。仓库现在提供其控制器启动契约、文本模式UI限制、显存交接以及32K/128K配置。**运行时前提仍是匹配的自定义 Windows/Ada NInfer 和转换后的 `.ninfer` 权重。** 不能将普通 Bonsai GGUF 直接交给 ninfer-serve，也不能使用上游 latest 的5090/NVFP4命令替代。
 
 作者构建溯源：

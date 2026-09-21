@@ -10,9 +10,9 @@
 
 **One repo. One setup. Fully local.**
 
-**Deploying on another 16GB PC, or troubleshooting OOM? Start with the [complete deployment guide](docs/DEPLOYMENT.zh-CN.md) and [Codex handoff instructions](docs/CODEX-DEPLOY.md).** Includes existing-DSH integration with backups, four model configurations, low-budget startup presets, GPU preflight and the ComfyUI image companion. Bonsai requires the separate custom runtime described in [its prerequisites](docs/BONSAI.md); this is not an automatic four-engine installer.
+**Deploying on another 16GB PC, or troubleshooting OOM? Start with the [complete deployment guide](docs/DEPLOYMENT.md) and [Codex handoff instructions](docs/CODEX-DEPLOY.en.md).** Includes existing-DSH integration with backups, four model configurations, low-budget startup presets, GPU preflight and the ComfyUI image companion. Bonsai requires the separate custom runtime described in [its prerequisites](docs/BONSAI.en.md); this is not an automatic four-engine installer.
 
-[Download the v1.2.0 deployment archive and SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.2.0) (no weights or private configuration).
+[Download the v1.2.1 deployment archive and SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.2.1) (no weights or private configuration).
 
 **Optional local image generation:** [Qwen-Image 2.1 companion setup](addons/qwen-image21/README.md) works alongside this **KVMem + DSH configuration** (also referred to as KVMan). It adds official prompt rewriting, text-to-image and reference-image editing using your existing Q4_K_M weights and local ComfyUI. The controller unloads the chat model before generation and reloads it afterward, allowing both capabilities to share a 16GB GPU sequentially. See the guide for prerequisites and tested limits.
 

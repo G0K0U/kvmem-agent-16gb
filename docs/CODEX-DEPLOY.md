@@ -1,5 +1,7 @@
 # 交给朋友的 Codex 部署任务
 
+[English](CODEX-DEPLOY.en.md) | [**简体中文**](CODEX-DEPLOY.md)
+
 将以下文字和仓库地址一起交给 Codex：
 
 > 请阅读 docs/DEPLOYMENT.zh-CN.md 后在这台电脑部署。先只读扫描 GPU/剩余VRAM、RAM、模型服务进程、DSH应用目录和真实DSH_HOME；执行 scripts/Diagnose.ps1 -Stage inventory。不要因为有16GB显存就假设全部组件可同时加载。

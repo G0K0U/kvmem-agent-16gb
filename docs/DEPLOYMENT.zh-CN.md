@@ -1,5 +1,7 @@
 # 16GB 显存完整部署手册：KVMem + DSH + Qwen-Image 2.1
 
+[English](DEPLOYMENT.md) | [**简体中文**](DEPLOYMENT.zh-CN.md)
+
 本手册是交给另一台电脑或 Codex 的主入口。仓库名中的 KVMem（有时口头写作 KVMan）是 llama.cpp 分支；Bonsai 使用另一套 NInfer 后端。**四个可选聊天模型意味着四选一，不是四个服务同时驻留。聊天和生图也必须串行使用 GPU。**
 
 同为 RTX 4080 16GB / 32GB RAM 不代表剩余资源相同。作者桌面在 2026-09-21 的一次只读检查中，Heretic 128K 已加载时整卡约占用 15.4 GiB，余量很小。这不是模型独占显存值，也不是朋友的 OOM 根因证明。先记录朋友机器的进程、空闲显存和失败阶段，再改参数。
