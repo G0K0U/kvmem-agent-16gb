@@ -55,7 +55,7 @@ const PROVIDER_NAME = 'Local LLM'
 
 /** Derive a display alias + provider key from a GGUF file name. */
 export function deriveModelNames(file) {
-  const alias = (file || '').replace(/\.gguf$/i, '') || ''
+  const alias = (file || '').replace(/\.(gguf|ninfer)$/i, '') || ''
   const slug = alias.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
   return { alias, providerKey: 'dsh-local-' + (slug || 'model') }
 }
@@ -125,6 +125,29 @@ export function validateKvmemRows(rows) {
   return {context,budget,reserve,mtp}
 }
 
+
+export function ninferOutputLimit(rows) {
+  const context = Number(argValue(rows, '--max-context'))
+  const output = Number(argValue(rows, '--default-max-tokens') || 4096)
+  if (!Number.isSafeInteger(context) || context < 512 || !Number.isSafeInteger(output) || output < 1)
+    throw Error('NInfer 上下文与输出上限必须为有效正整数')
+  return Math.min(output, context)
+}
+
+/** NInfer has a positional artifact and a distinct launch contract from KVMem. */
+export function buildNinferArgv(sl, file, rows, port) {
+  ninferOutputLimit(rows)
+  const context = Number(argValue(rows, '--max-context'))
+  const capacity = Number(argValue(rows, '--kv-capacity'))
+  if (!Number.isInteger(context) || context < 512 || !Number.isInteger(capacity) || capacity < context)
+    throw Error('NInfer KV 容量必须覆盖上下文')
+  if (!/\.ninfer$/i.test(file)) throw Error('NInfer 需要 .ninfer 制品')
+  const allowed = new Set(['--max-context','--kv-capacity','--kv-dtype','--max-concurrency','--spec','--draft-tokens','--preserve-thinking','--prefill-chunk','--host-kv-mib','--host-state-slots','--device-state-slots','--default-thinking-budget','--default-max-tokens'])
+  if (rows.some(r => !allowed.has(r.flag))) throw Error('包含未支持的 NInfer 参数')
+  return [sl.engineDir + '/' + sl.serverExe, file, '--host','127.0.0.1', '--port',String(port),
+    '--model-id',sl.alias, ...rows.flatMap(r => r.value ? [r.flag,r.value] : [r.flag])]
+}
+
 export function apply(ctx) {
   // ---- config defaults ----
   const DEF = {
@@ -177,7 +200,7 @@ export function apply(ctx) {
   function listModelFiles(dir) {
     if (!dir) return []
     try {
-      return fs.readdirSync(dir).filter((n) => /\.gguf$/i.test(n) && !/mmproj/i.test(n)).sort()
+      return fs.readdirSync(dir).filter((n) => /\.(gguf|ninfer)$/i.test(n) && !/mmproj/i.test(n)).sort()
     } catch (e) {
       return []
     }
@@ -187,7 +210,7 @@ export function apply(ctx) {
   function findMmproj(dir) {
     if (!dir) return null
     try {
-      const names = fs.readdirSync(dir).filter((n) => /\.gguf$/i.test(n) && /mmproj/i.test(n)).sort()
+      const names = fs.readdirSync(dir).filter((n) => /\.(gguf|ninfer)$/i.test(n) && /mmproj/i.test(n)).sort()
       return names.length ? names[0] : null
     } catch (e) {
       return null
@@ -210,7 +233,10 @@ export function apply(ctx) {
       slots[key] = {
         dir,
         file,
-        files: listModelFiles(dir),
+        backend: o.backend === 'ninfer' ? 'ninfer' : 'kvmem',
+        engineDir: o.engineDir || llamaDir,
+        serverExe: o.serverExe || u.serverExe || DEF.serverExe,
+        files: listModelFiles(dir).filter(n => o.backend === 'ninfer' ? /\.ninfer$/i.test(n) : /\.gguf$/i.test(n)),
         mmproj: findMmproj(dir),
         alias: file || alias,
         presets: normalizePresets(o.presets),
@@ -299,7 +325,6 @@ export function apply(ctx) {
   ctx.on('llm/stream', (options, next) =>
     options.provider === PROVIDER_KEY ? imageGpu.stream(options.signal, next) : next())
 
-
   if (saved) {
     slot = saved.slot
     mode = saved.mode
@@ -346,10 +371,12 @@ export function apply(ctx) {
     } catch (e) {
       throw new Error('模型文件夹不存在: ' + dir)
     }
-    const ggufs = names.filter((n) => /\.gguf$/i.test(n)).sort()
+    const ggufs = names.filter((n) => /\.(gguf|ninfer)$/i.test(n)).sort()
     if (!ggufs.length) throw new Error('模型文件夹中没有 .gguf 文件: ' + dir)
     const mmproj = ggufs.find((n) => /mmproj/i.test(n))
     const chosen = CFG.slots[key].file
+    if (CFG.slots[key].backend === 'ninfer' && (!chosen || !names.includes(chosen) || !/\.ninfer$/i.test(chosen)))
+      throw Error('所选 NInfer 制品不存在：' + chosen)
     const model = (chosen && ggufs.indexOf(chosen) >= 0 && !/mmproj/i.test(chosen)) ? chosen : ggufs.find((n) => !/mmproj/i.test(n))
     if (!model) throw new Error('模型文件夹中找不到模型 GGUF（只有一个 mmproj?）: ' + dir)
     return {
@@ -363,14 +390,19 @@ export function apply(ctx) {
     if (!sl) return null
     const rows = sl.presets[mo + ':' + p]
     if (!rows) return null
-    validateKvmemRows(rows)
+    if (sl.backend !== 'ninfer') validateKvmemRows(rows)
     let files
     try {
       files = resolveModelFiles(slotKey)
     } catch (e) {
       throw e
     }
-    const argv = [CFG.llamaDir + '/' + CFG.serverExe, '-m', files.file]
+    if (sl.backend === 'ninfer') {
+      if (mo !== 'text') throw Error('Bonsai NInfer 当前仅验证文本模式')
+      if (CFG.apiKey) throw Error('此本地配置需要空 API 密钥')
+      return buildNinferArgv(sl, files.file, rows, CFG.port)
+    }
+    const argv = [sl.engineDir + '/' + sl.serverExe, '-m', files.file]
     // vision mode auto-wires the folder's mmproj, if present
     if (mo === 'vision' && files.mmproj) argv.push('--mmproj', files.mmproj, '--no-mmproj-offload', '--image-max-tokens', '512')
     argv.push('--port', String(CFG.port), '--host', '127.0.0.1')
@@ -432,7 +464,7 @@ export function apply(ctx) {
       try {
         h = ctx.subprocess.spawn({
           argv,
-          cwd: CFG.llamaDir,
+          cwd: CFG.slots[slot].engineDir,
           stdio: { stdin: 'ignore', stdout: { maxBytes: 4096 }, stderr: { maxBytes: 4096 } },
           graceMs: 5000,
         })
@@ -454,7 +486,7 @@ export function apply(ctx) {
       try {
         h = ctx.subprocess.spawn({
           argv,
-          cwd: CFG.llamaDir,
+          cwd: CFG.slots[slot].engineDir,
           stdio: { stdin: 'ignore', stdout: { maxBytes: 65536 }, stderr: { maxBytes: 65536 } },
           graceMs: 5000,
         })
@@ -545,7 +577,7 @@ export function apply(ctx) {
     const sl = CFG.slots[slot]
     const rows = sl && sl.presets[mode + ':' + preset]
     if (!sl || !rows) return
-    const ctxValue = argValue(rows, '-c')
+    const ctxValue = argValue(rows, sl.backend === 'ninfer' ? '--max-context' : '-c')
     try {
       const desc = ctx.settings.describe().find((d) => d.ns === CFG.settingsNs)
       if (!desc) { note('provider sync: namespace ' + CFG.settingsNs + ' not registered'); return }
@@ -572,18 +604,32 @@ export function apply(ctx) {
           if (entry) {
             if (ctxValue && entry.contextWindow !== Number(ctxValue)) { entry.contextWindow = Number(ctxValue); changes.push('contextWindow=' + ctxValue) }
           } else {
-            note('provider sync: ' + PROVIDER_KEY + ' has no model id "' + sl.alias + '" — press「添加到模型列表」after changing the slot model file')
+            models.push({ id: sl.alias, name: sl.alias, contextWindow: Number(ctxValue), input: ['text'] })
+            changes.push('registered active model ' + sl.alias)
           }
         } else {
           note('provider sync: ' + PROVIDER_KEY + ' models shape unexpected; skipped')
         }
       }
       const activeModel = provider.models?.find(m => m.id === sl.alias)
-      if (activeModel) {
+      if (activeModel) activeModel.input = sl.backend === 'ninfer' || mode !== 'vision' ? ['text'] : ['text', 'image']
+      if (activeModel && sl.backend === 'ninfer') {
+        activeModel.maxTokens = ninferOutputLimit(rows)
+        activeModel.reasoningEfforts = {low:'low',medium:'medium',high:'xhigh'}
+        activeModel.name = 'Bonsai 2 27B + NInfer ' + (Number(ctxValue)/1024) + 'K'
+        changes.push('NInfer model synchronized')
+      }
+      if (activeModel && sl.backend !== 'ninfer') {
         activeModel.maxTokens = Number(argValue(rows, '--kvmem-gen-reserve') || 8192)
         activeModel.reasoningEfforts = {low:'low',medium:'medium',high:'xhigh'}
-        activeModel.name = 'QQZ + KVMem ' + (Number(ctxValue)/1024) + 'K / MTP' + (argValue(rows,'--spec-draft-n-max') || '2')
+        activeModel.name = (sl.alias.includes('Heretic-Ara') ? 'Heretic-Ara 3.0 IQ4_XS + KVMem ' : sl.alias.includes('GSQ-RCO-IQ3_S') ? 'Qwen3.8 GSQ-RCO IQ3_S + KVMem ' : 'QQZ + KVMem ') + (Number(ctxValue)/1024) + 'K / MTP' + (argValue(rows,'--spec-draft-n-max') || '2')
         changes.push('output and reasoning synchronized')
+      }
+      // Follow a completed engine switch for new local tasks. Start refuses active tasks.
+      const defaults = ctx.settings.describe().find(d => d.ns === 'agent-default-model')?.user
+      if (defaults?.provider === PROVIDER_KEY && defaults.model !== sl.alias) {
+        ctx.settings.replace('agent-default-model', {...defaults, model:sl.alias})
+          .catch(e => note('default model sync failed',e))
       }
       if (!changes.length) return
       ctx.settings.replace(CFG.settingsNs, section)
@@ -635,13 +681,13 @@ export function apply(ctx) {
         publishState()
         return
       }
-      const conflicts = await runCapture(['C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe','-NoProfile','-Command',"Get-CimInstance Win32_Process | Where-Object {$_.Name -match '^(llama-server|llama-kvmem-server|ComfyUI)' -or ($_.Name -match '^python' -and $_.CommandLine -match 'ComfyUI.*main\\.py')} | Select-Object -ExpandProperty Name"])
+      const conflicts = await runCapture(['C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe','-NoProfile','-Command',"Get-CimInstance Win32_Process | Where-Object {$_.Name -match '^(llama-server|llama-kvmem-server|ninfer-serve|ComfyUI)' -or ($_.Name -match '^python' -and $_.CommandLine -match 'ComfyUI.*main\\.py')} | Select-Object -ExpandProperty Name"])
       if(conflicts.trim()) throw new Error('请先停止已有模型服务或 ComfyUI：'+conflicts.trim())
       let h
       try {
         h = ctx.subprocess.spawn({
           argv,
-          cwd: CFG.llamaDir,
+          cwd: CFG.slots[slot].engineDir,
           stdio: { stdin: 'ignore', stdout: { maxBytes: 65536 }, stderr: { maxBytes: 65536 } },
           graceMs: 8000,
         })
@@ -756,7 +802,13 @@ export function apply(ctx) {
     }
     if (action === 'restart') {
       if(ctx.agents.list().some(a=>a.status==='running')) {lastError='请先结束 DSH 当前任务';publishState();return}
-      try{validateKvmemRows(resolveConfig().slots[next.slot].presets[next.mode+':'+next.preset])}catch(e){lastError=e.message;publishState();return}
+      try {
+        const fresh = resolveConfig(), sl = fresh.slots[next.slot], rows = sl.presets[next.mode+':'+next.preset]
+        if (sl.backend === 'ninfer') {
+          if (next.mode !== 'text') throw Error('Bonsai NInfer 当前仅验证文本模式')
+          buildNinferArgv(sl, sl.dir + '/' + sl.file, rows, fresh.port)
+        } else validateKvmemRows(rows)
+      } catch(e){lastError=e.message;publishState();return}
       rollback=lastGood
       const oldProc=proc;stop();
       Promise.resolve(oldProc?.done).then(()=>start(next.slot,next.mode,next.preset));

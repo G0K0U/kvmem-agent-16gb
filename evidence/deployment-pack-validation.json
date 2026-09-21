@@ -1,0 +1,26 @@
+{
+  "date": "2026-09-21",
+  "historicalEvidence": "See qwen-image21-validation.json for prior desktop image runs; not a clean-machine install claim",
+  "repositoryBase": "c71e8bdb1b7257f19fa61ab894e38964cb76d473",
+  "deploymentChanges": [
+    "Four named model configurations, bootstrap and desktop128 profiles",
+    "Existing DSH merge preserves unrelated providers, permissions and image settings",
+    "NInfer controller adapter ported from local deployment",
+    "Start launcher uses selected DSH_HOME and runs preflight"
+  ],
+  "automated": {
+    "controllerImageAndDeploymentTests": 42,
+    "secondModelPreflight": "correctly blocked existing model, occupied port and insufficient free VRAM",
+    "readOnlyInventory": "passed",
+    "powerShellSyntax": "passed",
+    "nodeSyntax": "passed",
+    "yamlMergeCli": "passed using synthetic settings and installed YAML dependency"
+  },
+  "limitations": [
+    "No friend-machine OOM logs available; root cause unconfirmed",
+    "No live model restart or GPU generation performed for this packaging change",
+    "Bootstrap presets are configuration-tested, not full GPU inference benchmarks",
+    "Custom NInfer engine and artifact packaging toolchain not included; see docs/BONSAI.md",
+    "Original image plugin full-suite limitations remain in qwen-image21-validation.json"
+  ]
+}

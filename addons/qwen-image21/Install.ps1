@@ -24,7 +24,7 @@ foreach ($file in @($cli, (Join-Path $DshHome 'settings.yaml'))) {
     if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing prerequisite: $file" }
 }
 foreach ($command in @('git','pnpm',$NodeExe)) { Get-Command $command -ErrorAction Stop | Out-Null }
-& $PythonExe -s -c 'import torch; assert torch.cuda.is_available(), "CUDA Python is required"'
+& $PythonExe -s -c 'import torch, gguf, safetensors, aiohttp, scipy, transformers, sentencepiece; assert torch.cuda.is_available(), "CUDA Python is required"'
 if ($LASTEXITCODE -ne 0) { throw 'Use a working ComfyUI CUDA Python environment, not a bare Python installation.' }
 $manifest = Get-Content (Join-Path $PSScriptRoot 'manifest.json') -Raw | ConvertFrom-Json
 $folders = @('diffusion_models','text_encoders','vae')

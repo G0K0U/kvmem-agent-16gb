@@ -10,6 +10,10 @@
 
 **一个仓库。一次部署。完全本地。**
 
+**朋友复现或遇到爆显存，请先看[完整部署与 OOM 排错手册](docs/DEPLOYMENT.zh-CN.md)，再将 [Codex 部署任务说明](docs/CODEX-DEPLOY.md)交给 Codex。** 包含现有 DSH 备份合并、四个模型配置、低预算启动档、显存预检及 ComfyUI 生图扩展。Bonsai 需要[单独的自定义运行时](docs/BONSAI.md)，不将它误写成全新机器上一键安装四后端。
+
+[下载 v1.2.0 部署压缩包与 SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.2.0)（不含权重和私人配置）。
+
 **可选本地生图扩展：**[Qwen-Image 2.1 完整配置与部署说明](addons/qwen-image21/README.zh-CN.md) **可与本仓库的 KVMem＋DSH 配置搭配使用**（亦称 KVMan）。复用原有 Q4_K_M 权重，通过官方提示词模板和本地 ComfyUI 完成文生图、参考图编辑。控制器在生图前卸载聊天模型、结束后重新加载，让两套能力按顺序共用 16GB 显存。安装前请阅读前置条件和验证范围。
 
 在单张消费级 GPU 上运行 27B 编程 Agent:

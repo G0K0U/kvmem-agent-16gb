@@ -205,6 +205,9 @@ window.__ModuleLoader__.load({
         const mkSlot = (src) => {
           const s = (src && typeof src === 'object') ? src : {}
           return {
+            backend: s.backend || 'kvmem',
+            engineDir: s.engineDir || '',
+            serverExe: s.serverExe || '',
             dir: s.dir || '',
             file: s.file || '',
             files: Array.isArray(s.files) ? s.files : [],
@@ -269,7 +272,11 @@ window.__ModuleLoader__.load({
       // card; rename the model on the models page instead).
       const pickFile = (slotKey, f) => setSlotField(slotKey, 'file', f)
 
-      const choose = (field, value) => { scope.set(field, value).catch(() => {}) }
+      const choose = (field, value) => {
+        const prepare = field === 'slot' && cfgDraft?.slots[value]?.backend === 'ninfer'
+          ? scope.set('mode', 'text') : Promise.resolve()
+        prepare.then(() => scope.set(field, value)).catch(() => {})
+      }
       const doStart = () => { scope.set('action', 'start').catch(() => {}) }
       const doStop = () => { scope.set('action', 'stop').catch(() => {}) }
       const doAddProviders = () => {
@@ -331,6 +338,9 @@ window.__ModuleLoader__.load({
         for (const key of ['a', 'b']) {
           const s = cfgDraft.slots[key]
           cfg.slots[key] = {
+            backend: s.backend,
+            engineDir: s.engineDir,
+            serverExe: s.serverExe,
             dir: (s.dir || '').trim(),
             file: s.file || '',
             presets: s.presets,
@@ -417,7 +427,7 @@ window.__ModuleLoader__.load({
 
       // launch-parameter rows for the currently selected group (slot+mode+preset)
       const quickControls = () => {
-        if(!cfgDraft) return null
+        if(!cfgDraft || cfgDraft.slots[st.slot].backend === 'ninfer') return null
         const group=st.mode+':'+st.preset
         const rows=cfgDraft.slots[st.slot].presets[group]
         const field=(flag,label,values)=>{
@@ -513,7 +523,7 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dsh-llm-bubble-row' },
               h('span', { className: 'dsh-llm-label' }, t('label.mode')),
               h('button', { className: 'dsh-llm-bubble' + (st.mode === 'text' ? ' on' : ''), disabled: running, onClick: () => choose('mode', 'text') }, t('mode.text')),
-              h('button', { className: 'dsh-llm-bubble' + (st.mode === 'vision' ? ' on' : ''), disabled: running, onClick: () => choose('mode', 'vision') }, t('mode.vision'))
+              h('button', { className: 'dsh-llm-bubble' + (st.mode === 'vision' ? ' on' : ''), disabled: running || cfgDraft?.slots[st.slot]?.backend === 'ninfer', onClick: () => choose('mode', 'vision') }, t('mode.vision'))
             ),
             h('div', { className: 'dsh-llm-bubble-row' },
               h('span', { className: 'dsh-llm-label' }, t('label.preset')),
@@ -577,7 +587,7 @@ window.__ModuleLoader__.load({
         ctx.effect(() => locale.register('local-llm', { zh: MESSAGES.zh, en: MESSAGES.en }), 'local-llm: card dictionaries')
       }
       slots.inject('settings.section', () => slots.register(
-        { name: 'settings.section', id: 'local-llm', order: 24, label: () => 'QQZ / KVMem', locale: 'local-llm' },
+        { name: 'settings.section', id: 'local-llm', order: 24, label: () => 'QQZ / Bonsai 本地模型', locale: 'local-llm' },
         (props) => h(Panel, { scope, t: props.t })
       ))
     }

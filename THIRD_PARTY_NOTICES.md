@@ -9,6 +9,8 @@
 
 ## Qwen-Image 2.1 可选扩展
 
+四模型部署另参考 [ISTA-DASLab](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF)、[Bucoid](https://huggingface.co/Bucoid/Qwen3.8-27B-Heretic-Ara-16GB-VRAM-IQ4-XS-MTP-GGUF)、[NInfer](https://github.com/Neroued/ninfer) 和 [Ada ternary 适配](https://www.modelscope.cn/models/shensanshu/ninfer-ada-ternary)。只提供来源、校验值、配置及控制器适配，不再分发这些权重或自定义 CUDA 引擎；下载文件遵循各自许可。
+
 - `addons/qwen-image21/image-plugin-overlay` 是对 [shanliuling/dsh-image-gen](https://github.com/shanliuling/dsh-image-gen) 的修改文件，基线 `93528e0d474d4b30c99ffdfa140d70c87c3cef53`，保留该目录的 Apache-2.0 LICENSE。修改包括本地显存协调、提示词改写、参考图传递及高级工作流适配；不是上游原样版本。该目录使用其自身许可证，根目录 MIT 不覆盖其来源代码。
 - 安装器从 [ComfyUI](https://github.com/Comfy-Org/ComfyUI) 和 [ComfyUI-GGUF](https://github.com/leejet/ComfyUI-GGUF) 下载固定版本；提交及文件校验值见扩展 `manifest.json`。下载项目遵循各自上游许可证。
 - 官方提示词模板从 [QwenLM/Qwen-Image-2.1](https://github.com/QwenLM/Qwen-Image-2.1/tree/main/prompt_rewrite/prompts) 的固定提交下载并校验。本仓库不再分发模板或模型权重，相关许可遵循原始项目及模型卡。
