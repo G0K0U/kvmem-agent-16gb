@@ -36,6 +36,9 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { ImageGpuTransaction } from './image-gpu.js'
+import { createImageRuntime } from './image-runtime.js'
+import { rewriteImagePrompt } from './image-rewrite.js'
 
 export const name = 'local-llm-controller'
 
@@ -238,6 +241,64 @@ export function apply(ctx) {
   let curlPath = null
   let serverPid = null
   let lastGood = null, rollback = null, recovered = null
+  const imageToken = Symbol('owned-image-handoff')
+  const imageRuntime = createImageRuntime()
+  const imageGpu = new ImageGpuTransaction({
+    agents: () => ctx.agents.list(),
+    ...imageRuntime,
+    snapshot: async () => {
+      if (status !== 'ready' || !proc) throw new Error('Chat model is not ready for image handoff')
+      return { config: structuredClone(CFG), slot, mode, preset }
+    },
+    unload: async () => {
+      const previous = proc
+      stop(imageToken)
+      if (previous) {
+        await Promise.race([previous.done, ctx.timer.timeout(30000).then(() => {
+          throw new Error('Chat model did not exit; image generation cancelled')
+        })])
+      }
+      if (await probeHealth()) throw new Error('Chat model port remains occupied')
+    },
+    restore: async snapshot => {
+      if (!snapshot) return
+      if (status === 'ready' && proc && slot === snapshot.slot && mode === snapshot.mode && preset === snapshot.preset && CFG.slots[slot].file === snapshot.config.slots[snapshot.slot].file) return
+      if (proc) await imageGpu.adapter.unload()
+      await scope.update({ config: snapshot.config, slot: snapshot.slot,
+        mode: snapshot.mode, preset: snapshot.preset, action: null })
+      CFG = snapshot.config
+      start(snapshot.slot, snapshot.mode, snapshot.preset, imageToken)
+      const deadline = Date.now() + READY_TIMEOUT_MS + 10000
+      while (Date.now() < deadline) {
+        if (status === 'ready') {
+          const response = await fetch('http://127.0.0.1:' + CFG.port + '/v1/models',
+            { signal: AbortSignal.timeout(5000) })
+          const models = await response.json()
+          if (!models.data?.some(model => model.id === snapshot.config.slots[snapshot.slot].alias))
+            throw new Error('Reloaded model identity does not match the saved model')
+          return
+        }
+        if (status === 'error') throw new Error(lastError || 'Chat model reload failed')
+        await ctx.timer.timeout(250)
+      }
+      throw new Error('Chat model reload timed out')
+    },
+  })
+  imageGpu.rewrite = async (request, signal) => {
+    if (!imageGpu.busy) throw new Error('Prompt rewriting requires the image GPU transaction')
+    const saved = await imageGpu.adapter.snapshot()
+    const targetSlot = /qwen/i.test(saved.config.slots[saved.slot].file) ? saved.slot : 'a'
+    const target = saved.config.slots[targetSlot]
+    if (!target || !/qwen/i.test(target.file)) throw new Error('Configure a local Qwen chat model in slot a for prompt enhancement')
+    if (request.images.length && !target.mmproj) throw new Error('The Qwen model has no vision projector for reference-image prompt enhancement')
+    await imageGpu.adapter.restore({ ...saved, slot: targetSlot, mode: request.images.length ? 'vision' : saved.mode })
+    return rewriteImagePrompt({ ...request, apiKey: saved.config.apiKey }, target.alias || target.file, saved.config.port, signal)
+  }
+  ctx.provide('localImageGpu', imageGpu)
+  ctx.effect(() => () => { imageRuntime.stopImage().catch(error => note('image process cleanup failed', error)) }, 'image process cleanup')
+  ctx.on('llm/stream', (options, next) =>
+    options.provider === PROVIDER_KEY ? imageGpu.stream(options.signal, next) : next())
+
 
   if (saved) {
     slot = saved.slot
@@ -533,8 +594,8 @@ export function apply(ctx) {
     }
   }
 
-  function start(m, mo, p) {
-    if(ctx.agents.list().some(a=>a.status==='running')) {lastError='请先结束 DSH 当前任务';publishState();return}
+  function start(m, mo, p, token) {
+    if(token !== imageToken && (imageGpu.busy || ctx.agents.list().some(a=>a.status==='running'))) {lastError='请先结束 DSH 当前任务';publishState();return}
 
     if (starting || status === 'starting' || status === 'ready' || status === 'stopping') return
     CFG = resolveConfig() // re-read card/installer config before each launch
@@ -646,8 +707,8 @@ export function apply(ctx) {
     }, POLL_MS)
   }
 
-  function stop() {
-    if(ctx.agents.list().some(a=>a.status==='running')) {lastError='请先结束 DSH 当前任务';publishState();return}
+  function stop(token) {
+    if(token !== imageToken && (imageGpu.busy || ctx.agents.list().some(a=>a.status==='running'))) {lastError='请先结束 DSH 当前任务';publishState();return}
 
     if (status === 'stopped' || status === 'stopping') return
     status = 'stopping'
@@ -689,6 +750,10 @@ export function apply(ctx) {
   ctx.on('settings/updated', (ns, next) => {
     if (ns !== 'local-llm') return
     const action = next && next.action
+    if (imageGpu.busy) {
+      if (action) { lastError='正在生图并恢复聊天模型，请等待完成'; publishState() }
+      return
+    }
     if (action === 'restart') {
       if(ctx.agents.list().some(a=>a.status==='running')) {lastError='请先结束 DSH 当前任务';publishState();return}
       try{validateKvmemRows(resolveConfig().slots[next.slot].presets[next.mode+':'+next.preset])}catch(e){lastError=e.message;publishState();return}

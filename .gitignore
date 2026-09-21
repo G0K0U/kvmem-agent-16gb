@@ -2,6 +2,8 @@ local/
 downloads/
 node_modules/
 *.gguf
+*.safetensors
+*.ninfer
 *.exe
 *.dll
 *.zip

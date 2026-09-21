@@ -6,3 +6,10 @@
 - QQZ GGUF：https://huggingface.co/QQZ2026/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-MTP-GGUF 。权重及衍生模型许可遵循对应模型卡和基础模型条款；根目录 MIT 不适用于下载权重。
 
 此仓库是个人部署快照，不代表以上项目官方背书。
+
+## Qwen-Image 2.1 可选扩展
+
+- `addons/qwen-image21/image-plugin-overlay` 是对 [shanliuling/dsh-image-gen](https://github.com/shanliuling/dsh-image-gen) 的修改文件，基线 `93528e0d474d4b30c99ffdfa140d70c87c3cef53`，保留该目录的 Apache-2.0 LICENSE。修改包括本地显存协调、提示词改写、参考图传递及高级工作流适配；不是上游原样版本。该目录使用其自身许可证，根目录 MIT 不覆盖其来源代码。
+- 安装器从 [ComfyUI](https://github.com/Comfy-Org/ComfyUI) 和 [ComfyUI-GGUF](https://github.com/leejet/ComfyUI-GGUF) 下载固定版本；提交及文件校验值见扩展 `manifest.json`。下载项目遵循各自上游许可证。
+- 官方提示词模板从 [QwenLM/Qwen-Image-2.1](https://github.com/QwenLM/Qwen-Image-2.1/tree/main/prompt_rewrite/prompts) 的固定提交下载并校验。本仓库不再分发模板或模型权重，相关许可遵循原始项目及模型卡。
+- 高级 API 工作流参考用户提供的 SevnFading 教程与 [RunningHub 工作流](https://www.runninghub.cn/post/2101856561537830914)，按本地 GGUF 和现有节点重建；未收录原始教程、字幕或完整第三方工作流包。超分分支未启用。

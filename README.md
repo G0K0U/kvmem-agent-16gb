@@ -10,6 +10,8 @@
 
 **One repo. One setup. Fully local.**
 
+**Optional local image generation:** [Qwen-Image 2.1 companion setup](addons/qwen-image21/README.md) works alongside this **KVMem + DSH configuration** (also referred to as KVMan). It adds official prompt rewriting, text-to-image and reference-image editing using your existing Q4_K_M weights and local ComfyUI. The controller unloads the chat model before generation and reloads it afterward, allowing both capabilities to share a 16GB GPU sequentially. See the guide for prerequisites and tested limits.
+
 Run a 27B coding agent on a single consumer GPU:
 
 **DSH Desktop → Parameter Panel → KVMem (llama.cpp fork) → GGUF**

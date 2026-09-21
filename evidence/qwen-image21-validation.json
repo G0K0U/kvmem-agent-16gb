@@ -1,0 +1,60 @@
+{
+  "limitations": [
+    "Bonsai/NInfer test used a separate local backend not included in this GGUF/KVMem add-on",
+    "Advanced IQ3 and QQZ image runs were not repeated",
+    "Cancellation recovery has unit coverage only",
+    "SeedVR2 and VOSR2 upscaling are disabled"
+  ],
+  "privacy": "Raw prompts, user paths, session identifiers and generated images omitted",
+  "unitTests": {
+    "publicControllerAndConfiguration": 35,
+    "upstreamImagePluginOverlay": 44
+  },
+  "date": "2026-09-21",
+  "hardware": {
+    "platform": "Windows",
+    "ramGB": 32,
+    "gpu": "RTX 4080 16GB"
+  },
+  "scope": "Original desktop deployment; portable installer has not been tested on a second clean machine",
+  "advanced": [
+    {
+      "workflow": "Qwen-Image 2.1 Advanced T2I",
+      "width": 1248,
+      "passed": true,
+      "case": "t2i",
+      "toolCalls": 1,
+      "modelRestored": true,
+      "completed": true,
+      "height": 832
+    },
+    {
+      "workflow": "Qwen-Image 2.1 Advanced I2I",
+      "width": 1024,
+      "passed": true,
+      "case": "multi-i2i",
+      "toolCalls": 1,
+      "modelRestored": true,
+      "completed": true,
+      "height": 1024
+    },
+    {
+      "workflow": "Qwen-Image 2.1 Advanced I2I",
+      "width": 1024,
+      "passed": true,
+      "case": "bonsai-i2i",
+      "toolCalls": 1,
+      "modelRestored": true,
+      "completed": true,
+      "height": 1024
+    }
+  ],
+  "upstreamFullSuite": {
+    "total": 352,
+    "passed": 350,
+    "failures": [
+      "Legacy multi-image rejection assertion conflicts with new behavior",
+      "Windows workspace-save junction test returned EEXIST"
+    ]
+  }
+}

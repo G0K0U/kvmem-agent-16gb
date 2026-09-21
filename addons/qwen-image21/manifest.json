@@ -1,0 +1,24 @@
+{
+  "comfyCommit": "c194dd00cd42aa18d9dbf27d977bf6b85d9ea565",
+  "ggufCommit": "f912d5e5c25921e41eae2c0131eeb4d350e7c165",
+  "pluginCommit": "93528e0d474d4b30c99ffdfa140d70c87c3cef53",
+  "models": [
+    {
+      "file": "qwen-image-2.1-Q4_K_M.gguf",
+      "sha256": "833439e91bc1152d28f37aa198c7f6f4218b7de95754c2f7a318a2422ab4b2f8"
+    },
+    {
+      "file": "qwen3vl_8b_int8_convrot.safetensors",
+      "sha256": "8bfd0f6e12abf2d2d697ecc888e5e90b0d6741d6708f05799f53afa560452e8f"
+    },
+    {
+      "file": "qwen_image_2.1_vae_bf16.safetensors",
+      "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
+    }
+  ],
+  "prompts": {
+    "system_prompt_edit.txt": "e378fea686a1431581ba4c654d332ae96adad633f144ae738ec8ce9c4fd66439",
+    "system_prompt_t2i.txt": "a77c9a06c59b120741141d9514b95682bb8761d02bec49ca61def7b2b3d9fb99"
+  },
+  "promptCommit": "fb7ae1d1f9611cd91524d03c53c5246b36ac8577"
+}
