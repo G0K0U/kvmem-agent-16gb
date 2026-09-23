@@ -10,9 +10,11 @@
 
 **一个仓库。一次部署。完全本地。**
 
-**朋友复现或遇到爆显存，请先看[完整部署与 OOM 排错手册](docs/DEPLOYMENT.zh-CN.md)，再将 [Codex 部署任务说明](docs/CODEX-DEPLOY.md)交给 Codex。** 包含现有 DSH 备份合并、四个模型配置、低预算启动档、显存预检及 ComfyUI 生图扩展。Bonsai 需要[单独的自定义运行时](docs/BONSAI.md)，不将它误写成全新机器上一键安装四后端。
+**朋友复现或遇到爆显存，请先看[完整部署与 OOM 排错手册](docs/DEPLOYMENT.zh-CN.md)，再将 [Codex 部署任务说明](docs/CODEX-DEPLOY.md)交给 Codex。** 包含现有 DSH 备份合并、四个模型配置与 CRACK 旗舰、低预算启动档、显存预检及 ComfyUI 生图扩展。Bonsai 需要[单独的自定义运行时](docs/BONSAI.md)，不将它误写成全新机器上一键安装四后端。
 
-[下载 v1.2.1 部署压缩包与 SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.2.1)（不含权重和私人配置）。
+> **🏆 旗舰配置：[Bonsai 2 CRACK PQ2](docs/CRACK-FLAGSHIP.zh-CN.md) —— RTX 4080 16GB 上 262144 上下文、100+ tok/s 解码。** 这里的两台 RTX 4080 电脑部署后均作为日常主力，日常使用稳定 100+ tok/s（严格单次基线 98.9–99.1 tok/s）。需要自定义 NInfer 运行时。更看重智力而非速度？选 **GSQ**，稳定约 50 tok/s。见[模型推荐](#模型推荐)。
+
+[下载 v1.3.0 部署压缩包与 SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.3.0)（不含权重和私人配置）。
 
 **可选本地生图扩展：**[Qwen-Image 2.1 完整配置与部署说明](addons/qwen-image21/README.zh-CN.md) **可与本仓库的 KVMem＋DSH 配置搭配使用**（亦称 KVMan）。复用原有 Q4_K_M 权重，通过官方提示词模板和本地 ComfyUI 完成文生图、参考图编辑。控制器在生图前卸载聊天模型、结束后重新加载，让两套能力按顺序共用 16GB 显存。安装前请阅读前置条件和验证范围。
 
@@ -40,8 +42,9 @@
 | 长上下文解码 | **约 20K 至 155K 输入保持 14–20 tok/s** |
 | 实用日常上下文档位 | **64K** |
 | MTP 推测解码 | **草稿 2,实测会话零 replay 错误** |
+| 旗舰：Bonsai 2 CRACK PQ2（NInfer 运行时） | **日常 100+ tok/s,262144 上下文** |
 
-以上数字在日常桌面环境下测得——浏览器、编辑器、聊天软件全程后台开启——而非静默的基准测试机。
+以上数字在日常桌面环境下测得——浏览器、编辑器、聊天软件全程后台开启——而非静默的基准测试机。旗舰行来自 [Bonsai 2 CRACK 部署](docs/CRACK-FLAGSHIP.zh-CN.md)：部署当日严格单次基线 98.9–99.1 tok/s，两台 RTX 4080 日常使用稳定 100+ tok/s；262144 上下文分配后剩余显存约 1.61 GiB。
 
 > **32.05 tok/s 是会话加权吞吐,不等于"155K 上下文按 32 tok/s 解码"。** 该会话实际峰值上下文约 27K token。方法、数字与边界见[成功案例](docs/CASE-STUDY.md)。
 
@@ -157,6 +160,18 @@ DSH Desktop → 本地参数面板管理模型进程
 
 关闭时先停止任务,在面板停止模型,再正常退出桌面程序。备份 `local/dsh-home` 可保存设置和会话,但不要将它提交到 GitHub。
 
+## 模型推荐
+
+固定默认模型之外的三个已验证选择——同一时间只运行一个模型。两个 GGUF 选择走标准 KVMem 槽位；Bonsai 系制品需要[自定义 NInfer 运行时](docs/BONSAI.md)。
+
+| 目标 | 选择 | RTX 4080 16GB 实测 |
+|---|---|---|
+| 智力 / 推理 | **GSQ** — [Qwen3.8-27B-GSQ-RCO IQ3_S MTP](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF)（`iq3`，KVMem） | 稳定 **约 50 tok/s** |
+| 均衡、完全可复现的默认 | **QQZ** IQ4_XS V3 MTP（`qqz`，KVMem） | 会话加权 32.05 tok/s；20K–155K 输入 14–20 tok/s |
+| 极致速度 + 长上下文 | **Bonsai 2 CRACK PQ2**（`Bonsai2-CRACK-PQ2.ninfer`，NInfer） | 日常 **100+ tok/s**，262144 上下文——[旗舰文档](docs/CRACK-FLAGSHIP.zh-CN.md) |
+
+GSQ 的约 50 tok/s 是作者在与[成功案例](docs/CASE-STUDY.md)相同日常桌面条件下的经验数字，非受控协议。`.\scripts\Download-ChatModel.ps1 -Model iq3` 可带 SHA256 校验下载 GSQ。
+
 ## 换用其他模型
 
 槽位机制与模型无关;固定默认模型只是便利,不是限制。
@@ -164,11 +179,11 @@ DSH Desktop → 本地参数面板管理模型进程
 - **交互式换模型:** 把任意 GGUF(可选附 `mmproj-*.gguf`)放进一个文件夹,在卡片中将当前槽位的模型文件夹指向它,选择该文件,然后"应用并重启"。GGUF 与 mmproj 在文件夹内自动识别;显示名由文件名派生,可在模型页重命名。同一时间只运行一个槽位——切换前先停止当前模型(两者共享同一份显存预算)。
 - **修改固定默认模型(从零可复现):** 编辑 `config/assets.json` 的 `model`/`vision` 条目(URL + SHA256)和 `config/settings.template.json` 中 A 槽的 `file`/`mmproj` 字段,然后在新位置重新运行 `Download.ps1 -Models` 和 `Configure.ps1`。
 - **其他模型调参提示:** MTP 相关旗标(`--spec-type draft-mtp`、`--spec-draft-n-max`、`--kvmem-mtp-state replay`)要求模型为 MTP-enabled GGUF(QQZ V3、Unsloth MTP 版等)。KV 量化以保真换显存——q5_0 是本仓库验证过的中间档;q8_0 更占显存,q4_0 更省。预算与预留都是 token 数,不是 MB。调小 `-b` 可释放计算缓冲显存,但会损失部分预填充速度。保持 `-ngl 999` 完整 GPU offload。
-- **边界:** 128K 是可选档位;192K/256K 未作为稳定的日常档位验证。换了显卡/内存后整个包络都会变化——请重新实测,不要假定文中数字可直接迁移。
+- **边界:** 128K 是可选档位;在 **KVMem GGUF 路径上** 192K/256K 未作为稳定的日常档位验证。（256K 的例外是 NInfer 的 [CRACK 旗舰](docs/CRACK-FLAGSHIP.zh-CN.md)：262144 以 4-bit KV 成功分配——但该深度的准确率仍未验证。）换了显卡/内存后整个包络都会变化——请重新实测,不要假定文中数字可直接迁移。
 
 ## 稳定性边界
 
-- 64K 是保守默认档位。128K 是可选配置,192K/256K 不作为已验证的日常稳定档位。
+- 64K 是保守默认档位。128K 是可选配置,在 KVMem 路径上 192K/256K 不作为已验证的日常稳定档位（NInfer 的 [CRACK 旗舰](docs/CRACK-FLAGSHIP.zh-CN.md)以 4-bit KV 分配 262144——深层上下文准确率仍未验证）。
 - 某次压力测试成功到 155,539 输入 token,但可用 RAM/VRAM 接近耗尽,并出现过 KVMem block/replay 错误;不是长期 Agent 可靠性保证。
 - KVMem 历史 KV 使用系统内存是框架机制。语言模型层 GPU offload 与 KV 内存存储是两回事;Windows 仍可能发生共享显存/内存迁移。
 - 视觉解析、截图理解、通用桌面点击仍有已知故障。Computer Use 的非 JSON 输出、审批模式和反复观察问题不属于此稳定默认链路。

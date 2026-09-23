@@ -22,5 +22,17 @@
     "file": "Bonsai2-PQ2-MTP.ninfer",
     "sha256": "05bbbf01090c6f61113b54556daa22ad0b45036a078af6cd6f02a3fde47ad76c",
     "runtime": "Custom Windows/Ada text-only NInfer build; see docs/BONSAI.md. No automatic upstream-latest substitution."
+  },
+  "crack": {
+    "backend": "ninfer",
+    "file": "Bonsai2-CRACK-PQ2.ninfer",
+    "sha256": "ea11022e5b275bcf115cde29146106d0f64ed9db83105f7900de3bcdfd00ca84",
+    "source": {
+      "model": "dealignai/Bonsai-2-27B-Ternary-CRACK-GGUF",
+      "revision": "3d36486a5fb2a3868116b8f6e768179e2391d28d",
+      "gguf_sha256": "5b24ea3eebc3e0bccd05fb474eb88b10c57699d71a5db2f29485e3789a70d55d"
+    },
+    "engine": "CraneBW/ninfer-ternary-bonsai-ada @ ad6cb4645bbfee13d487578682c7b2a53f299e16",
+    "runtime": "Custom Windows/Ada text-only NInfer build, 262144 ctx / rk4v4-e8 KV / MTP3; flagship configuration, see docs/CRACK-FLAGSHIP.md. Artifact is self-converted; not distributed."
   }
 }

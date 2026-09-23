@@ -39,4 +39,8 @@ Slot A retains Qwen for prompt enhancement and visual reference rewriting, requi
 | default-max-tokens |4096 |131072 |
 | MTP | Off | Off |
 
-The output ceiling does not mean 128K input plus 128K output fit together: they share the context capacity. The author's 128K setting passed capacity allocation and roughly 15K input/summary tests, not full 128K semantic-quality validation. 256K previously failed for insufficient VRAM. Do not automatically increase context to 256K or raise concurrency when copying this configuration.
+The output ceiling does not mean 128K input plus 128K output fit together: they share the context capacity. The author's 128K setting passed capacity allocation and roughly 15K input/summary tests, not full 128K semantic-quality validation. 256K previously failed for insufficient VRAM **on this earlier engine build with INT8 KV and MTP off**. Do not automatically increase context to 256K or raise concurrency when copying this configuration.
+
+## Superseded for the CRACK artifact: 256K + MTP on the newer engine
+
+The table above describes `Bonsai2-PQ2-MTP.ninfer` on the earlier NInfer build. The newer [CRACK artifact + engine combination](CRACK-FLAGSHIP.md) (`Bonsai2-CRACK-PQ2.ninfer` on CraneBW/ninfer-ternary-bonsai-ada) changes the envelope: 262144/262144 allocates with 4-bit KV (`rk4v4-e8`) + MTP draft 3, leaving about 1.61 GiB VRAM free, at a 98.9–99.1 tok/s single-shot decode baseline on RTX 4080 — and both RTX 4080 machines here sustain 100+ tok/s in daily use after that deployment. The original artifact also passes new-engine compatibility, so both artifacts share the slot. Full-256K accuracy and long-term stability are still not validated; see the flagship document for provenance, measurements and rollback.

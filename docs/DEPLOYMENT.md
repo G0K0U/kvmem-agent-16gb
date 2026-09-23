@@ -129,6 +129,8 @@ bootstrap is the newly added low-budget acceptance profile. Its parameters have 
 
 To switch to QQZ or Heretic, download the matching file, exit DSH and rerun the same configuration command with `-Model qqz` or `-Model heretic` plus `-IntegrateExisting`. Explicitly add `-Profile desktop128` to select the author's 128K profile. Change one variable at a time and retest. The three GGUF choices share slot A's file selection; they do not create four concurrent slots. After changing a file directly in the panel, use its model-list synchronization action; the configuration script sets these fields automatically.
 
+A fifth, flagship configuration extends the bonsai path rather than replacing it: `Bonsai2-CRACK-PQ2.ninfer` on the CraneBW/ninfer-ternary-bonsai-ada engine allocates 262144/262144 with 4-bit KV + MTP draft 3 and sustains 100+ tok/s in daily use on both RTX 4080 machines here. It needs the newer engine build and self-converted artifacts; provenance, measurements and rollback: [CRACK-FLAGSHIP.md](CRACK-FLAGSHIP.md). The scripted `-Model` choices remain the four documented above; the flagship is configured by pointing slot B at the new artifact and engine.
+
 See [Bonsai configuration and runtime prerequisites](BONSAI.en.md). The controller includes NInfer integration, but the author's custom CUDA binary is not distributed as a generic upstream installation.
 
 ## 6. Plugins and the long-session patch

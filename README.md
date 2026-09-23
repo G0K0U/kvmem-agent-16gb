@@ -10,9 +10,11 @@
 
 **One repo. One setup. Fully local.**
 
-**Deploying on another 16GB PC, or troubleshooting OOM? Start with the [complete deployment guide](docs/DEPLOYMENT.md) and [Codex handoff instructions](docs/CODEX-DEPLOY.en.md).** Includes existing-DSH integration with backups, four model configurations, low-budget startup presets, GPU preflight and the ComfyUI image companion. Bonsai requires the separate custom runtime described in [its prerequisites](docs/BONSAI.en.md); this is not an automatic four-engine installer.
+**Deploying on another 16GB PC, or troubleshooting OOM? Start with the [complete deployment guide](docs/DEPLOYMENT.md) and [Codex handoff instructions](docs/CODEX-DEPLOY.en.md).** Includes existing-DSH integration with backups, four model configurations plus the CRACK flagship, low-budget startup presets, GPU preflight and the ComfyUI image companion. Bonsai requires the separate custom runtime described in [its prerequisites](docs/BONSAI.en.md); this is not an automatic four-engine installer.
 
-[Download the v1.2.1 deployment archive and SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.2.1) (no weights or private configuration).
+> **🏆 Flagship: [Bonsai 2 CRACK PQ2](docs/CRACK-FLAGSHIP.md) — 100+ tok/s decode with 262144 context on RTX 4080 16GB.** Deployed on both RTX 4080 machines here; both sustain 100+ tok/s in daily use (98.9–99.1 tok/s on the strict single-shot baseline). Needs the custom NInfer runtime. Prefer intelligence over speed? **GSQ** is the pick at a stable ~50 tok/s. See the [model guide](#model-guide).
+
+[Download the v1.3.0 deployment archive and SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.3.0) (no weights or private configuration).
 
 **Optional local image generation:** [Qwen-Image 2.1 companion setup](addons/qwen-image21/README.md) works alongside this **KVMem + DSH configuration** (also referred to as KVMan). It adds official prompt rewriting, text-to-image and reference-image editing using your existing Q4_K_M weights and local ComfyUI. The controller unloads the chat model before generation and reloads it afterward, allowing both capabilities to share a 16GB GPU sequentially. See the guide for prerequisites and tested limits.
 
@@ -40,8 +42,9 @@ The language model stays fully GPU-offloaded while the long-context KV cache liv
 | Long-context decode | **14–20 tok/s from ~20K to 155K input** |
 | Practical daily context preset | **64K** |
 | MTP speculative decoding | **Draft 2, zero replay errors in the measured session** |
+| Flagship: Bonsai 2 CRACK PQ2 (NInfer runtime) | **100+ tok/s daily, 262144 context** |
 
-These numbers were measured on an everyday desktop, with browsers, editors and chat applications left open in the background — not on an isolated benchmark machine.
+These numbers were measured on an everyday desktop, with browsers, editors and chat applications left open in the background — not on an isolated benchmark machine. The flagship row is the [Bonsai 2 CRACK deployment](docs/CRACK-FLAGSHIP.md): 98.9–99.1 tok/s single-shot strict baseline at deployment, 100+ tok/s sustained in daily use on both RTX 4080 machines; 262144 context allocates with ~1.61 GiB VRAM free.
 
 > **32.05 tok/s is session-weighted throughput, not a claim that 155K context decodes at 32 tok/s.** The session's actual peak context was about 27K tokens. Method, numbers and limits: [case study](docs/CASE-STUDY.md).
 
@@ -157,6 +160,18 @@ For a coding acceptance check, use "create a single-file HTML in the working dir
 
 To shut down: stop tasks, stop the model in the panel, then exit the desktop normally. Backing up `local/dsh-home` preserves settings and sessions, but never commit it to GitHub.
 
+## Model guide
+
+Three validated picks beyond the pinned default — one model runs at a time. The two GGUF choices share the standard KVMem slots; Bonsai-family artifacts need the [custom NInfer runtime](docs/BONSAI.en.md).
+
+| Goal | Pick | Measured on RTX 4080 16GB |
+|---|---|---|
+| Intelligence / reasoning | **GSQ** — [Qwen3.8-27B-GSQ-RCO IQ3_S MTP](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF) (`iq3`, KVMem) | stable **~50 tok/s** |
+| Balanced, fully reproducible default | **QQZ** IQ4_XS V3 MTP (`qqz`, KVMem) | 32.05 tok/s session-weighted; 14–20 tok/s at 20K–155K input |
+| Max speed + long context | **Bonsai 2 CRACK PQ2** (`Bonsai2-CRACK-PQ2.ninfer`, NInfer) | **100+ tok/s** in daily use, 262144 context — [flagship doc](docs/CRACK-FLAGSHIP.md) |
+
+The ~50 tok/s for GSQ is the author's field number under the same everyday-desktop conditions as the [case study](docs/CASE-STUDY.md), not from a controlled protocol. `.\scripts\Download-ChatModel.ps1 -Model iq3` fetches GSQ with SHA256 checks.
+
 ## Using a different model
 
 The slots are model-agnostic; the pinned default is a convenience, not a requirement.
@@ -164,11 +179,11 @@ The slots are model-agnostic; the pinned default is a convenience, not a require
 - **Swap interactively:** drop any GGUF (plus an optional `mmproj-*.gguf`) into a folder, point the card's model-folder field for the active slot at it, choose the file, then Apply & restart. GGUF and mmproj files are auto-detected inside the folder; the display name derives from the filename and can be renamed on the models page. One slot runs at a time — stop the current model before switching (they share one VRAM budget).
 - **Change the pinned default (reproducible from scratch):** edit the `model`/`vision` entries in `config/assets.json` (URL + SHA256) and the `file`/`mmproj` fields of slot A in `config/settings.template.json`, then re-run `Download.ps1 -Models` and `Configure.ps1` in a fresh location.
 - **Tuning notes for other models:** the MTP flags (`--spec-type draft-mtp`, `--spec-draft-n-max`, `--kvmem-mtp-state replay`) require an MTP-enabled GGUF (QQZ V3, Unsloth MTP builds, and similar). KV quantization trades VRAM for fidelity — q5_0 is the validated middle ground here; q8_0 costs VRAM, q4_0 frees it. Budget and reserve are token counts, not MB. A smaller `-b` frees compute buffer memory at some prompt-processing speed. Keep `-ngl 999` for full GPU offload.
-- **Boundary:** 128K is an optional preset; 192K/256K are not validated as stable daily settings. On a different GPU/RAM the whole envelope shifts — re-verify rather than assuming the numbers above transfer.
+- **Boundary:** 128K is an optional preset; 192K/256K are not validated as stable daily settings **on the KVMem GGUF path**. (The 256K exception is the NInfer-based [CRACK flagship](docs/CRACK-FLAGSHIP.md), where 262144 allocates with 4-bit KV — accuracy at that depth remains unvalidated.) On a different GPU/RAM the whole envelope shifts — re-verify rather than assuming the numbers above transfer.
 
 ## Stability boundaries
 
-- 64K is the conservative default step. 128K is an optional configuration; 192K/256K are not validated as stable daily settings.
+- 64K is the conservative default step. 128K is an optional configuration; 192K/256K are not validated as stable daily settings on the KVMem path (the NInfer-based [CRACK flagship](docs/CRACK-FLAGSHIP.md) allocates 262144 with 4-bit KV — deep-context accuracy remains unvalidated).
 - One stress test reached 155,539 input tokens, but available RAM/VRAM were nearly exhausted and a KVMem block/replay error appeared; that is not a long-term agent reliability guarantee.
 - KVMem keeping historical KV in system memory is a framework mechanism. GPU offload of language-model layers and KV storage in memory are two different things; Windows can still migrate to shared GPU memory.
 - Vision parsing, screenshot understanding and generic desktop clicking have known failures. Computer Use's non-JSON output, approval-mode and repeated-observation problems are outside this stable default path.

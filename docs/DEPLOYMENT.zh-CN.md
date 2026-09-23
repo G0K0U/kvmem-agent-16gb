@@ -129,6 +129,8 @@ bootstrap 是此次新增的低预算验收档，已做参数测试，未在朋�
 
 切换 QQZ/Heretic：先下载对应文件，再退出 DSH，使用相同配置命令加 `-Model qqz` 或 `-Model heretic` 和 `-IntegrateExisting`。如要恢复作者 128K 档，显式加 `-Profile desktop128`。每次只改一项并复测。三个 GGUF 共用槽位 A 的文件选择；不是创建四个并发槽位。面板直接换文件后还需“添加到模型列表”，以同步模型 ID；配置脚本会自动完成这些字段。
 
+第五个旗舰配置是 bonsai 路径的扩展而非替代：`Bonsai2-CRACK-PQ2.ninfer` 运行在 CraneBW/ninfer-ternary-bonsai-ada 引擎上，以 4-bit KV + MTP draft 3 分配 262144/262144，这里两台 RTX 4080 日常使用稳定 100+ tok/s。它需要更新的引擎构建和自行转换的制品；来源、实测与回退见 [CRACK-FLAGSHIP.zh-CN.md](CRACK-FLAGSHIP.zh-CN.md)。脚本的 `-Model` 可选值仍为上述四个；旗舰配置通过把 B 槽指向新制品与新引擎来手动完成。
+
 Bonsai 配置和运行时前提见 [BONSAI.md](BONSAI.md)。本次发布已包含 NInfer 控制器适配，但没有把作者的自定义 CUDA 二进制伪装成上游通用安装包。
 
 ## 6. 插件与长会话补丁
