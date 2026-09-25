@@ -110,7 +110,7 @@ Start.ps1 使用 `--disable-gpu` 启动 Electron，以减少界面占用；控�
 | ID | 定位 | 后端 / 权重体积 | 标准配置 |
 |---|---|---|---|
 | `iq3` | **默认——泛用 + 多模态** | KVMem，约 11.29 GiB | bootstrap：64K / Q5 KV / MTP1；desktop128：128K / Q5 KV / MTP2 |
-| `qqz` | 均衡 KVMem 备选 / 历史 benchmark 基线 | KVMem，约 13.27 GiB | 同两档参数，显存余量更小 |
+| `qqz` | 均衡 KVMem 备选 | KVMem，约 13.27 GiB | 同两档参数，显存余量更小 |
 | `heretic` | 另一套 16GB GGUF 备选 | KVMem，约 13.35 GiB | 同两档参数，显存余量更小 |
 | `bonsai` | 原版 NInfer 兼容/回退，text-only | 自定义 NInfer，约 7.74 GiB | 32K INT8 KV bootstrap；128K INT8 KV desktop128；MTP 关闭 |
 | `crack` | **Jailbreak / Flash / text-only 旗舰** | 自定义 NInfer，自行转换制品 | 262144 / 262144，`rk4v4-e8` 4-bit KV，MTP draft 3；日常 100+ tok/s 经验值 |
