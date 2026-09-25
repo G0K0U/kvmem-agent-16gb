@@ -1,7 +1,7 @@
 {
   "agent-default-model": {
     "provider": "qqz-kvmem",
-    "model": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
+    "model": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
     "reasoningEffort": "high"
   },
   "permission": {
@@ -10,7 +10,7 @@
   "llm-pi-ai": {
     "providers": {
       "qqz-kvmem": {
-        "displayName": "QQZ + KVMem Local",
+        "displayName": "GSQ + KVMem Local",
         "api": "openai-completions",
         "apiKeyEnv": "QQZ_LOCAL_API_KEY",
         "baseURL": "http://127.0.0.1:18200/v1",
@@ -25,8 +25,8 @@
         },
         "models": [
           {
-            "id": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
-            "name": "QQZ + KVMem 64K / MTP2",
+            "id": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+            "name": "GSQ + KVMem 64K / MTP2 · multimodal default",
             "contextWindow": 65536,
             "maxTokens": 8192,
             "input": [
@@ -59,7 +59,7 @@
       "slots": {
         "a": {
           "dir": "__MODELS_DIR__",
-          "file": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
+          "file": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
           "mmproj": "mmproj-Qwen3.8-27B-F16.gguf",
           "presets": {
             "text:fast": [
