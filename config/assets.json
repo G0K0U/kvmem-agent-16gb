@@ -13,9 +13,9 @@
   },
   {
     "name": "model",
-    "file": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
-    "url": "https://huggingface.co/QQZ2026/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-MTP-GGUF/resolve/e45b6a3a3c137c11df9da4a79cfae82fdd7faaa3/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
-    "sha256": "f6c1f6e1211aeceaa386cbeabd0bdfbee0d124747ecaa3e908a93394518e9274"
+    "file": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+    "url": "https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d562806dbafae37109975e970aae91b43e73b440/Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+    "sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f"
   },
   {
     "name": "vision",
