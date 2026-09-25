@@ -5,12 +5,17 @@
 - 参数面板逻辑与 KVMem 参数测试：11 项通过，0 失败。
 - PowerShell 脚本语法检查通过。
 - 独立 `local/dsh-home` 配置生成及桌面 CLI 插件安装成功，未改动原 DSH_HOME。
-- 数字 usage 从已有真实会话重新提取，输出和累计 token 与报告一致。
 - 发布文件采用白名单整理；未加入会话、凭据、机器专用路径、模型权重或运行时二进制。
 
 这次验证没有启动第二个 GPU 模型实例，没有在空白机器上完整安装，也没有新增 GUI 操作或长上下文稳定性结论。自动下载脚本的网络下载/完整校验流程未重新执行；校验清单来自已核对的上游发布资产和模型版本。
 
 11 项插件单元测试不能替代 DSH 整体端到端测试。参数面板迁移、长上下文、视觉输入仍应按 README 中的边界使用。
+
+## 2026-09-25 追加：性能案例来源调整
+
+旧 QQZ/rc2 性能 benchmark 已从当前 README、案例文档及其专用 evidence/图表资产中移除。默认 GSQ 的主要性能案例改为引用上游 issue [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47) 的第三方社区实测。
+
+该社区案例由外部用户提交，本仓库没有在本轮重新执行其 rc3、Q5_K-MIX projector 或 9×K/V 矩阵测试。因此 README 将其标注为 community validation，而不是仓库维护者自己的 benchmark。
 
 ## 2026-09-20 追加:Deploy.ps1 一键编排脚本
 
