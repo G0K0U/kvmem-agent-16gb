@@ -36,7 +36,7 @@
 
 ## 第三方社区实测案例：RTX 4080 16GB 上的 GSQ
 
-默认 GSQ 配置现在以 **RiskManager6** 在 [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47) 提交的独立社区报告作为主要性能案例。测试环境为 **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3**，模型为 `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf`。
+默认 GSQ 配置现在以 **RiskManager6** 在 [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47) 提交的第三方社区报告作为主要性能案例。测试环境为 **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3**，模型为 `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf`。
 
 | 测试 | 报告结果 |
 |---|---:|
@@ -165,7 +165,7 @@ DSH Desktop → 本地参数面板管理模型进程
 
 | ID | 实际模型 | 后端 | 状态 / 用途 |
 |---|---|---|---|
-| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **默认——泛用 + 多模态。** 主要性能案例采用 #47 的独立 rc3 报告：约 60K 输入 52.6 tok/s；约 32K 下 9 组 K/V 为 54.6–59.1 tok/s。 |
+| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **默认——泛用 + 多模态。** 主要性能案例采用 #47 的第三方 rc3 社区报告：约 60K 输入 52.6 tok/s；约 32K 下 9 组 K/V 为 54.6–59.1 tok/s。 |
 | `qqz` | **Qwen3.8-27B-ZeroRefusal IQ4_XS V3 Final MTP** | KVMem | 均衡 KVMem 备选。 |
 | `heretic` | **Qwen3.8-27B-Heretic-Ara IQ4_XS 3.0 MTP** | KVMem | 另一套 16GB GGUF 备选；启用 projector 时走相同 KVMem 多模态路径。 |
 | `bonsai` | **Bonsai2-PQ2-MTP.ninfer** | NInfer | 原版 Bonsai NInfer / 兼容回退；DSH 中 **text-only**。 |
