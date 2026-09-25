@@ -1,9 +1,5 @@
 [**English**](README.md) | [简体中文](README.zh-CN.md)
 
-<p align="center">
-  <img src="assets/linkedin/architecture-16gb.png" alt="16GB VRAM local agent stack: DSH Desktop → Parameter Panel → KVMem server → GGUF, with the GPU/RAM memory layout" width="620">
-</p>
-
 # 27B Local Coding Agent on 16GB VRAM
 
 > A deployable, reproducible Windows local-agent stack for the **16GB-VRAM / 32GB-RAM consumer hardware class**.
