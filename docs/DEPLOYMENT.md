@@ -110,7 +110,7 @@ The role split is intentional: **`iq3` / GSQ is the general-purpose multimodal d
 | ID | Role | Backend / weight size | Standard configuration |
 |---|---|---|---|
 | `iq3` | **Default — general-purpose + multimodal** | KVMem, about 11.29 GiB | bootstrap: 64K / Q5 KV / MTP1; desktop128: 128K / Q5 KV / MTP2 |
-| `qqz` | Balanced KVMem alternative / historical benchmark baseline | KVMem, about 13.27 GiB | Same profiles, with less VRAM headroom |
+| `qqz` | Balanced KVMem alternative | KVMem, about 13.27 GiB | Same profiles, with less VRAM headroom |
 | `heretic` | Alternative 16GB GGUF | KVMem, about 13.35 GiB | Same profiles, with less VRAM headroom |
 | `bonsai` | Original NInfer compatibility/fallback, text-only | Custom NInfer, about 7.74 GiB | 32K INT8 KV bootstrap; 128K INT8 KV desktop128; MTP off |
 | `crack` | **Jailbreak / Flash / text-only flagship** | Custom NInfer, self-converted artifact | 262144 / 262144, `rk4v4-e8` 4-bit KV, MTP draft 3; 100+ tok/s daily-use observation |
