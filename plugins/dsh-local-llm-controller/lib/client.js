@@ -435,7 +435,7 @@ window.__ModuleLoader__.load({
           if(index<0)return null
           return h('label',{className:'dsh-llm-cfg-row'},h('span',null,label),h('select',{className:'dsh-llm-input',value:rows[index].value,onChange:e=>setPresetRow(st.slot,group,index,'value',e.target.value)},values.map(v=>h('option',{key:v,value:String(v)},flag==='--spec-draft-n-max'?String(v):v/1024+'K'))))
         }
-        return h('div',{className:'dsh-llm-bubble-group'},h('strong',null,'QQZ 快捷参数'),
+        return h('div',{className:'dsh-llm-bubble-group'},h('strong',null,'KVMem 快捷参数'),
           field('-c','上下文',[65536,131072,196608,262144]),
           field('--spec-draft-n-max','MTP 草稿数',[1,2,3,4]),
           field('--kvmem-budget','KV 检索预算',[8192,16384,24576,32768,40960,49152]),
@@ -587,7 +587,7 @@ window.__ModuleLoader__.load({
         ctx.effect(() => locale.register('local-llm', { zh: MESSAGES.zh, en: MESSAGES.en }), 'local-llm: card dictionaries')
       }
       slots.inject('settings.section', () => slots.register(
-        { name: 'settings.section', id: 'local-llm', order: 24, label: () => 'QQZ / Bonsai 本地模型', locale: 'local-llm' },
+        { name: 'settings.section', id: 'local-llm', order: 24, label: () => 'KVMem / NInfer 本地模型', locale: 'local-llm' },
         (props) => h(Panel, { scope, t: props.t })
       ))
     }
