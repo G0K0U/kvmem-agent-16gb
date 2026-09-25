@@ -103,16 +103,19 @@ Create a new task. Test simple arithmetic, then a real read/write operation on a
 
 After passing, exit DSH and rerun the same Configure-Stack command with `-IntegrateExisting -Vision`. Restart and test one small, non-sensitive image. The controller should inject `--no-mmproj-offload --image-max-tokens 512`. Offloading the vision projector to the GPU competes with chat memory.
 
-## 5. Four optional models and two profiles
+## 5. Five model profiles and two standard profiles
 
-| Choice | Backend / weight size | Initial `bootstrap` profile | Author's `desktop128` profile |
+The role split is intentional: **`iq3` / GSQ is the general-purpose multimodal default**, while **`crack` is the Jailbreak / Flash / text-only flagship**. Only one chat model runs at a time.
+
+| ID | Role | Backend / weight size | Standard configuration |
 |---|---|---|---|
-| iq3 | KVMem, about 11.29 GiB | 64K / Q5 KV / MTP1 | 128K / Q5 KV / MTP2 |
-| qqz | KVMem, about 13.27 GiB | Same, with less VRAM headroom | Same |
-| heretic | KVMem, about 13.35 GiB | Same, with less VRAM headroom | Same |
-| bonsai | Custom NInfer, about 7.74 GiB | 32K INT8 KV, MTP off, text only | 128K INT8 KV, MTP off, text only |
+| `iq3` | **Default — general-purpose + multimodal** | KVMem, about 11.29 GiB | bootstrap: 64K / Q5 KV / MTP1; desktop128: 128K / Q5 KV / MTP2 |
+| `qqz` | Balanced KVMem alternative / historical benchmark baseline | KVMem, about 13.27 GiB | Same profiles, with less VRAM headroom |
+| `heretic` | Alternative 16GB GGUF | KVMem, about 13.35 GiB | Same profiles, with less VRAM headroom |
+| `bonsai` | Original NInfer compatibility/fallback, text-only | Custom NInfer, about 7.74 GiB | 32K INT8 KV bootstrap; 128K INT8 KV desktop128; MTP off |
+| `crack` | **Jailbreak / Flash / text-only flagship** | Custom NInfer, self-converted artifact | 262144 / 262144, `rk4v4-e8` 4-bit KV, MTP draft 3; 100+ tok/s daily-use observation |
 
-`scripts/stack-config.mjs` generates the first three models' parameters to avoid manual omissions:
+`scripts/stack-config.mjs` generates the first three KVMem models' parameters to avoid manual omissions:
 
 | Parameter | bootstrap | desktop128 |
 |---|---:|---:|
@@ -125,11 +128,11 @@ After passing, exit DSH and rerun the same Configure-Stack command with `-Integr
 | `-ngl` | 999 | 999 |
 | Vision encoder | CPU, 512 image tokens | CPU, 512 image tokens |
 
-bootstrap is the newly added low-budget acceptance profile. Its parameters have automated coverage, but full inference has not been validated on your friend's computer. desktop128 comes from the author's measured configuration, not a guarantee for every 16GB system. Logical context is different from the GPU KV budget: reducing `-c` alone may not fix OOM. Small budgets also handle large uncached input and summary replay less well; expand only after short tasks pass.
+bootstrap is the low-budget acceptance profile. Its parameters have automated coverage, but full inference has not been validated on every target PC. desktop128 comes from the author's measured configuration, not a guarantee for every 16GB system. Logical context is different from the GPU KV budget: reducing `-c` alone may not fix OOM.
 
-To switch to QQZ or Heretic, download the matching file, exit DSH and rerun the same configuration command with `-Model qqz` or `-Model heretic` plus `-IntegrateExisting`. Explicitly add `-Profile desktop128` to select the author's 128K profile. Change one variable at a time and retest. The three GGUF choices share slot A's file selection; they do not create four concurrent slots. After changing a file directly in the panel, use its model-list synchronization action; the configuration script sets these fields automatically.
+The clean/default KVMem path is `iq3`. To switch to QQZ or Heretic, download the matching file, exit DSH and rerun the same configuration command with `-Model qqz` or `-Model heretic` plus `-IntegrateExisting`. Explicitly add `-Profile desktop128` for the author's 128K profile. The three GGUF choices share slot A and the same multimodal projector path.
 
-A fifth, flagship configuration extends the bonsai path rather than replacing it: `Bonsai2-CRACK-PQ2.ninfer` on the CraneBW/ninfer-ternary-bonsai-ada engine allocates 262144/262144 with 4-bit KV + MTP draft 3 and sustains 100+ tok/s in daily use on both RTX 4080 machines here. It needs the newer engine build and self-converted artifacts; provenance, measurements and rollback: [CRACK-FLAGSHIP.md](CRACK-FLAGSHIP.md). The scripted `-Model` choices remain the four documented above; the flagship is configured by pointing slot B at the new artifact and engine.
+`bonsai` and `crack` require the separate custom NInfer runtime and converted artifacts. The current scripted `-Model` path directly supports the original `bonsai` profile; the CRACK flagship remains a manually prepared slot-B artifact/runtime configuration because its 262K / 4-bit-KV / MTP3 launch contract differs from the old Bonsai profiles. Provenance, measurements and rollback: [CRACK-FLAGSHIP.md](CRACK-FLAGSHIP.md).
 
 See [Bonsai configuration and runtime prerequisites](BONSAI.en.md). The controller includes NInfer integration, but the author's custom CUDA binary is not distributed as a generic upstream installation.
 
