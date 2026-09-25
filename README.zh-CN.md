@@ -34,27 +34,26 @@
 | **日常预设** | 64K 上下文 / MTP2 |
 | **平台** | Windows |
 
-## 在真实桌面上实测
+## 第三方社区实测案例：RTX 4080 16GB 上的 GSQ
 
-| | 结果 |
+默认 GSQ 配置现在以 **RiskManager6** 在 [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47) 提交的独立社区报告作为主要性能案例。测试环境为 **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3**，模型为 `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf`。
+
+| 测试 | 报告结果 |
 |---|---:|
-| 真实 10 次调用编程 Agent 会话 | **加权 32.05 tok/s** |
-| 长上下文解码 | **约 20K 至 155K 输入保持 14–20 tok/s** |
-| 实用日常上下文档位 | **64K** |
-| MTP 推测解码 | **草稿 2,实测会话零 replay 错误** |
-| 旗舰：Bonsai 2 CRACK PQ2（NInfer 运行时） | **日常 100+ tok/s,262144 上下文** |
+| 约 60K token 检索提示 | **52.6 tok/s**，成功命中上下文中部埋点 |
+| 约 32K token 下 9/9 K/V 量化组合 | **54.6–59.1 tok/s**，全部组合均正常加载、推理、检索并复用缓存 |
+| 128K 上下文中的 100,084-token 检索 | **56.5 tok/s**，成功命中埋点 |
+| 128K 测试整卡显存峰值 | **14,777 MiB / 16,376 MiB** |
+| 128K 测试系统可用内存最低 | **2,571 MB** |
+| CPU 侧多模态 smoke test | 结果正确；decode **64.8 tok/s** |
 
-以上数字在日常桌面环境下测得——浏览器、编辑器、聊天软件全程后台开启——而非静默的基准测试机。旗舰行来自 [Bonsai 2 CRACK 部署](docs/CRACK-FLAGSHIP.zh-CN.md)：部署当日严格单次基线 98.9–99.1 tok/s，两台 RTX 4080 日常使用稳定 100+ tok/s；262144 上下文分配后剩余显存约 1.61 GiB。
+该 issue 的评论中还公开了参数化 PowerShell 复现脚本。测试条件与本仓库当前固定部署并不完全相同：对方使用 **rc3**、CPU 上更小的 **Q5_K-MIX** projector、清理后的显存环境，并设置 NVIDIA prefer-no-sysmem-fallback。因此这些数字应视为**第三方社区案例**，不是所有 16GB 机器都能达到的性能保证。
 
-> **32.05 tok/s 是会话加权吞吐,不等于"155K 上下文按 32 tok/s 解码"。** 该会话实际峰值上下文约 27K token。方法、数字与边界见[成功案例](docs/CASE-STUDY.md)。
-
-<p align="center">
-  <img src="assets/linkedin/capacity-curve-16gb.png" alt="从 20K 到 155K 输入 token,解码速度保持在 14–20 tok/s" width="420">
-</p>
+完整方法、额外数据和 128K 后续测试整理在[案例文档](docs/CASE-STUDY.md)，原始来源始终指向 [#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47)。
 
 ## 快速开始
 
-需要 Windows x64、与固定 CUDA 运行时匹配的 NVIDIA 驱动、**16GB 显存 + 32GB 内存**、Node.js 24(原环境 24.19.0)、PowerShell、Git 和 curl。默认 GSQ 模型约 11.29 GiB，视觉编码器约 0.93GB。模型运行时日常后台软件(浏览器、编辑器、聊天)可以保持开启——上面的数字就是在该条件下测得的;关闭 ComfyUI、游戏等 GPU 重载即可。
+需要 Windows x64、与固定 CUDA 运行时匹配的 NVIDIA 驱动、**16GB 显存 + 32GB 内存**、Node.js 24(原环境 24.19.0)、PowerShell、Git 和 curl。默认 GSQ 模型约 11.29 GiB，当前固定 F16 视觉编码器约 0.93GB。验证显存余量时应关闭 ComfyUI、游戏等 GPU 重载；上面的社区案例采用了专门清理后的显存环境。
 
 **三条命令。唯一需要交互的步骤是 DSH Desktop 安装程序。**
 
@@ -135,7 +134,7 @@ DSH Desktop → 本地参数面板管理模型进程
 |---|---|
 | 双模型槽位(A/B);每个槽位可指向任意 GGUF 文件夹,自动识别 `mmproj`,同一时间只运行一个模型进程 | `assets.json` 固定 GSQ IQ3_S MTP 模型 + F16 视觉投影，`Download.ps1` 一条命令带 SHA256 校验 |
 | 八组启动参数全量可编辑(2 槽位 × 文本/视觉 × fast/long) | `settings.template.json` 预设按 27B / 66 层模型调优:64K、MTP2、q5_0 KV、预算 32K |
-| 模型显示名由 GGUF 文件名派生,可在模型页重命名 | 实测数字仅在 QQZ 模型上取得 |
+| 模型显示名由 GGUF 文件名派生,可在模型页重命名 | 主要性能案例来自 #47 的外部 GSQ/rc3 社区报告，不作为本仓库自身 benchmark 声明 |
 | `serverExe` 可配置(`llama-kvmem-server.exe`;Linux/macOS 为 `llama-server`) | DSH Desktop 与 DeepSeek Harness 版本固定 |
 
 面板在应用配置时按如下包络校验:上下文 ∈ {64K, 128K, 192K, 256K};`--kvmem-budget` ∈ {8K … 48K}(8K 步进);`--kvmem-gen-reserve` ∈ {4K, 8K, 16K};预算 + 预留 ≤ 上下文;MTP 草稿数 1–4;`-ngl` ≥ 66(保持完整 GPU offload)。该包络对应 16GB 显存上的 27B 级 MTP GGUF。其他模型可通过同样的槽位加载,但包络之外的内容不在本仓库测试范围内,且 MTP 预设假定模型为 MTP-enabled GGUF。
@@ -162,32 +161,19 @@ DSH Desktop → 本地参数面板管理模型进程
 
 ## 模型推荐
 
-仓库现在明确提供 5 个命名模型配置；同一时间只运行一个模型。三个 GGUF 配置走标准 KVMem 槽位，并可使用共享的 F16 vision projector；Bonsai 系 `.ninfer` 制品使用自定义 NInfer，在 DSH 中按 text-only 使用。
+仓库现在明确提供 5 个命名模型配置；同一时间只运行一个模型。三个 GGUF 配置走标准 KVMem 槽位，并可使用共享 vision projector；Bonsai 系 `.ninfer` 制品使用自定义 NInfer，在 DSH 中按 text-only 使用。
 
 | ID | 实际模型 | 后端 | 状态 / 用途 |
 |---|---|---|---|
-| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **默认——泛用 + 多模态。** 推荐日常配置；共享 F16 vision projector；作者日常经验约 50 tok/s。 |
-| `qqz` | **Qwen3.8-27B-ZeroRefusal IQ4_XS V3 Final MTP** | KVMem | 均衡 KVMem 备选；目前 README 中 32.05 tok/s 与长上下文数据保留为该模型的历史实测基线。 |
+| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **默认——泛用 + 多模态。** 主要性能案例采用 #47 的独立 rc3 报告：约 60K 输入 52.6 tok/s；约 32K 下 9 组 K/V 为 54.6–59.1 tok/s。 |
+| `qqz` | **Qwen3.8-27B-ZeroRefusal IQ4_XS V3 Final MTP** | KVMem | 均衡 KVMem 备选。 |
 | `heretic` | **Qwen3.8-27B-Heretic-Ara IQ4_XS 3.0 MTP** | KVMem | 另一套 16GB GGUF 备选；启用 projector 时走相同 KVMem 多模态路径。 |
 | `bonsai` | **Bonsai2-PQ2-MTP.ninfer** | NInfer | 原版 Bonsai NInfer / 兼容回退；DSH 中 **text-only**。 |
 | `crack` | **Bonsai2-CRACK-PQ2.ninfer** | NInfer | **Jailbreak / Flash / text-only 旗舰。** 日常 100+ tok/s、262144 上下文；需要自定义 Windows/Ada NInfer。 |
 
-`config/chat-models.json` 同步保存了这套 role / modality 元数据，供脚本或界面读取。从零部署的默认路径现在下载并配置 `iq3`；也可以显式运行 `.\scripts\Download-ChatModel.ps1 -Model iq3 -Vision`。CRACK 仍属于单独准备的 NInfer 制品/运行时路径，具体见[旗舰文档](docs/CRACK-FLAGSHIP.zh-CN.md)。
+`config/chat-models.json` 同步保存 role / modality 元数据。从零部署默认下载并配置 `iq3`；也可显式运行 `.\scripts\Download-ChatModel.ps1 -Model iq3 -Vision`。CRACK 仍属于单独准备的 NInfer 制品/运行时路径，具体见[旗舰文档](docs/CRACK-FLAGSHIP.zh-CN.md)。
 
-GSQ 的约 50 tok/s 是作者日常桌面环境下的经验数字，不是受控协议。README 其他位置的 32.05 tok/s 会话加权吞吐与 20K–155K 长上下文结果继续作为 **QQZ 历史证据**保留，不会改写成 GSQ 的测试结果。
-
-### 第三方社区验证
-
-另一位社区用户在 **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3** 上对同一个 GSQ `IQ3_S MTP` 模型进行了独立的社区实测，补充了本仓库自身测试之外的数据：[kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47)。
-
-其报告包括：
-
-- 约 60K token 检索提示下 **52.6 tok/s**，且成功命中埋在中间位置的目标值。
-- 约 32K token 下完整测试 9 组 K/V 量化组合，decode **54.6–59.1 tok/s**，检索与缓存复用均正常。
-- 在 128K 上下文中完成 **100,084 token** 检索，decode **56.5 tok/s**，中间埋点成功命中。
-- CPU 侧 projector 多模态测试成功；该报告使用的是更小的 **Q5_K-MIX** projector，而本仓库当前固定默认仍为 F16 projector。
-
-这些属于**第三方社区结果，不是对本仓库旧 QQZ/rc2 benchmark 的严格同条件复现**。对方使用 rc3、GSQ IQ3_S、清理后的显存环境、不同 retrieval budget，并启用了 NVIDIA 的 prefer-no-sysmem-fallback 设置。因此应把它视为对 GSQ/KVMem 路径的补充证据，而不是普遍性能保证。
+GSQ 性能证据统一引用[社区案例文档](docs/CASE-STUDY.md)，来源为 [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47)。
 
 ## 换用其他模型
 
@@ -201,7 +187,7 @@ GSQ 的约 50 tok/s 是作者日常桌面环境下的经验数字，不是受控
 ## 稳定性边界
 
 - 64K 是保守默认档位。128K 是可选配置,在 KVMem 路径上 192K/256K 不作为已验证的日常稳定档位（NInfer 的 [CRACK 旗舰](docs/CRACK-FLAGSHIP.zh-CN.md)以 4-bit KV 分配 262144——深层上下文准确率仍未验证）。
-- 某次压力测试成功到 155,539 输入 token,但可用 RAM/VRAM 接近耗尽,并出现过 KVMem block/replay 错误;不是长期 Agent 可靠性保证。
+- #47 社区案例在 128K 上下文中完成了 100,084-token 检索，但系统可用内存最低仅约 2.57 GB。报告者没有继续尝试 192K，因为剩余内存余量已经很小。
 - KVMem 历史 KV 使用系统内存是框架机制。语言模型层 GPU offload 与 KV 内存存储是两回事;Windows 仍可能发生共享显存/内存迁移。
 - 视觉解析、截图理解、通用桌面点击仍有已知故障。Computer Use 的非 JSON 输出、审批模式和反复观察问题不属于此稳定默认链路。
 - 切换上下文/预算可能导致内存不足。发生启动错误时恢复 64K / 32768 / MTP2,查看面板日志;不要重复启动更多模型进程。
