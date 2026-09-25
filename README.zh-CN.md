@@ -10,9 +10,9 @@
 
 **一个仓库。一次部署。完全本地。**
 
-**朋友复现或遇到爆显存，请先看[完整部署与 OOM 排错手册](docs/DEPLOYMENT.zh-CN.md)，再将 [Codex 部署任务说明](docs/CODEX-DEPLOY.md)交给 Codex。** 包含现有 DSH 备份合并、四个模型配置与 CRACK 旗舰、低预算启动档、显存预检及 ComfyUI 生图扩展。Bonsai 需要[单独的自定义运行时](docs/BONSAI.md)，不将它误写成全新机器上一键安装四后端。
+**朋友复现或遇到爆显存，请先看[完整部署与 OOM 排错手册](docs/DEPLOYMENT.zh-CN.md)，再将 [Codex 部署任务说明](docs/CODEX-DEPLOY.md)交给 Codex。** 包含现有 DSH 备份合并、五个清晰定义的模型配置、低预算启动档、显存预检及 ComfyUI 生图扩展。Bonsai 需要[单独的自定义运行时](docs/BONSAI.md)，不将它误写成全新机器上一键安装四后端。
 
-> **🏆 旗舰配置：[Bonsai 2 CRACK PQ2](docs/CRACK-FLAGSHIP.zh-CN.md) —— RTX 4080 16GB 上 262144 上下文、100+ tok/s 解码。** 这里的两台 RTX 4080 电脑部署后均作为日常主力，日常使用稳定 100+ tok/s（严格单次基线 98.9–99.1 tok/s）。需要自定义 NInfer 运行时。更看重智力而非速度？选 **GSQ**，稳定约 50 tok/s。见[模型推荐](#模型推荐)。
+> **默认日常模型：GSQ（`iq3`）——泛用 + 多模态。** 它走标准 KVMem 路径并搭配 F16 vision projector，也是本仓库默认下载和配置的模型。需要最高速度以及明确的 **Jailbreak / Flash / text-only** 定位时，使用 **[Bonsai 2 CRACK PQ2](docs/CRACK-FLAGSHIP.zh-CN.md)**：RTX 4080 16GB 上日常 100+ tok/s、262144 上下文（严格单次基线 98.9–99.1 tok/s）；CRACK 需要自定义 NInfer 运行时。
 
 [下载 v1.3.0 部署压缩包与 SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.3.0)（不含权重和私人配置）。
 
@@ -30,7 +30,7 @@
 |---|---|
 | **GPU** | RTX 4080 — 16GB 显存 |
 | **内存** | 32GB |
-| **模型** | Qwen3.8 27B 社区 IQ4_XS MTP 量化 |
+| **默认模型** | GSQ — Qwen3.8-27B-GSQ-RCO IQ3_S MTP + F16 vision projector |
 | **日常预设** | 64K 上下文 / MTP2 |
 | **平台** | Windows |
 
@@ -54,7 +54,7 @@
 
 ## 快速开始
 
-需要 Windows x64、与固定 CUDA 运行时匹配的 NVIDIA 驱动、**16GB 显存 + 32GB 内存**、Node.js 24(原环境 24.19.0)、PowerShell、Git 和 curl。模型约 14.25GB,视觉编码器约 0.93GB。模型运行时日常后台软件(浏览器、编辑器、聊天)可以保持开启——上面的数字就是在该条件下测得的;关闭 ComfyUI、游戏等 GPU 重载即可。
+需要 Windows x64、与固定 CUDA 运行时匹配的 NVIDIA 驱动、**16GB 显存 + 32GB 内存**、Node.js 24(原环境 24.19.0)、PowerShell、Git 和 curl。默认 GSQ 模型约 11.29 GiB，视觉编码器约 0.93GB。模型运行时日常后台软件(浏览器、编辑器、聊天)可以保持开启——上面的数字就是在该条件下测得的;关闭 ComfyUI、游戏等 GPU 重载即可。
 
 **三条命令。唯一需要交互的步骤是 DSH Desktop 安装程序。**
 
@@ -121,7 +121,7 @@ DSH Desktop → 本地参数面板管理模型进程
 
 | 组件 | 固定版本 / 来源 |
 |---|---|
-| QQZ(默认模型) | [IQ4_XS V3 Final MTP](https://huggingface.co/QQZ2026/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-MTP-GGUF),revision `e45b6a3a3c137c11df9da4a79cfae82fdd7faaa3` |
+| GSQ（`iq3`，默认模型） | [Qwen3.8-27B-GSQ-RCO IQ3_S MTP](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF)，revision `d562806dbafae37109975e970aae91b43e73b440` |
 | KVMem | [v0.16.0-rc2](https://github.com/kvmem/kvmem-llama.cpp/releases/tag/v0.16.0-rc2),Windows CUDA 13.2.86 |
 | DSH Desktop | [2.0.12-beta.1](https://github.com/anywhere-labs/dsh-desktop/releases/tag/v2.0.12-beta.1),社区桌面客户端 |
 | DeepSeek Harness | 桌面版内置 `0.1.6-alpha.2` |
@@ -133,7 +133,7 @@ DSH Desktop → 本地参数面板管理模型进程
 
 | 通用——可换用其他模型 | 本仓库中固定 |
 |---|---|
-| 双模型槽位(A/B);每个槽位可指向任意 GGUF 文件夹,自动识别 `mmproj`,同一时间只运行一个模型进程 | `assets.json` 固定 QQZ IQ4_XS V3 模型 + F16 视觉投影,`Download.ps1` 一条命令带 SHA256 校验 |
+| 双模型槽位(A/B);每个槽位可指向任意 GGUF 文件夹,自动识别 `mmproj`,同一时间只运行一个模型进程 | `assets.json` 固定 GSQ IQ3_S MTP 模型 + F16 视觉投影，`Download.ps1` 一条命令带 SHA256 校验 |
 | 八组启动参数全量可编辑(2 槽位 × 文本/视觉 × fast/long) | `settings.template.json` 预设按 27B / 66 层模型调优:64K、MTP2、q5_0 KV、预算 32K |
 | 模型显示名由 GGUF 文件名派生,可在模型页重命名 | 实测数字仅在 QQZ 模型上取得 |
 | `serverExe` 可配置(`llama-kvmem-server.exe`;Linux/macOS 为 `llama-server`) | DSH Desktop 与 DeepSeek Harness 版本固定 |
@@ -142,7 +142,7 @@ DSH Desktop → 本地参数面板管理模型进程
 
 ## 日常使用与参数面板
 
-在 DSH 设置中打开 Local LLM Controller / QQZ-KVMem 卡片。默认 A 槽、vision 模式、fast 参数组为 **64K / MTP2**。CPU 视觉编码器保留在这个模式中。选择上下文档位、MTP 草稿数和 KV 预算后,点击"应用并重启";等待后端恢复健康,检查模型列表中的上下文是否同步,再开始新任务。先结束正在运行的 Agent 请求。
+在 DSH 设置中打开 Local LLM Controller。默认 A 槽为 **GSQ（`iq3`）**、vision 模式、fast 参数组为 **64K / MTP2**。CPU 视觉编码器保留在这个模式中。选择上下文档位、MTP 草稿数和 KV 预算后,点击"应用并重启";等待后端恢复健康,检查模型列表中的上下文是否同步,再开始新任务。先结束正在运行的 Agent 请求。
 
 | 参数 | 默认值 | 含义 |
 |---|---:|---|
@@ -162,15 +162,19 @@ DSH Desktop → 本地参数面板管理模型进程
 
 ## 模型推荐
 
-固定默认模型之外的三个已验证选择——同一时间只运行一个模型。两个 GGUF 选择走标准 KVMem 槽位；Bonsai 系制品需要[自定义 NInfer 运行时](docs/BONSAI.md)。
+仓库现在明确提供 5 个命名模型配置；同一时间只运行一个模型。三个 GGUF 配置走标准 KVMem 槽位，并可使用共享的 F16 vision projector；Bonsai 系 `.ninfer` 制品使用自定义 NInfer，在 DSH 中按 text-only 使用。
 
-| 目标 | 选择 | RTX 4080 16GB 实测 |
-|---|---|---|
-| 智力 / 推理 | **GSQ** — [Qwen3.8-27B-GSQ-RCO IQ3_S MTP](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF)（`iq3`，KVMem） | 稳定 **约 50 tok/s** |
-| 均衡、完全可复现的默认 | **QQZ** IQ4_XS V3 MTP（`qqz`，KVMem） | 会话加权 32.05 tok/s；20K–155K 输入 14–20 tok/s |
-| 极致速度 + 长上下文 | **Bonsai 2 CRACK PQ2**（`Bonsai2-CRACK-PQ2.ninfer`，NInfer） | 日常 **100+ tok/s**，262144 上下文——[旗舰文档](docs/CRACK-FLAGSHIP.zh-CN.md) |
+| ID | 实际模型 | 后端 | 状态 / 用途 |
+|---|---|---|---|
+| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **默认——泛用 + 多模态。** 推荐日常配置；共享 F16 vision projector；作者日常经验约 50 tok/s。 |
+| `qqz` | **Qwen3.8-27B-ZeroRefusal IQ4_XS V3 Final MTP** | KVMem | 均衡 KVMem 备选；目前 README 中 32.05 tok/s 与长上下文数据保留为该模型的历史实测基线。 |
+| `heretic` | **Qwen3.8-27B-Heretic-Ara IQ4_XS 3.0 MTP** | KVMem | 另一套 16GB GGUF 备选；启用 projector 时走相同 KVMem 多模态路径。 |
+| `bonsai` | **Bonsai2-PQ2-MTP.ninfer** | NInfer | 原版 Bonsai NInfer / 兼容回退；DSH 中 **text-only**。 |
+| `crack` | **Bonsai2-CRACK-PQ2.ninfer** | NInfer | **Jailbreak / Flash / text-only 旗舰。** 日常 100+ tok/s、262144 上下文；需要自定义 Windows/Ada NInfer。 |
 
-GSQ 的约 50 tok/s 是作者在与[成功案例](docs/CASE-STUDY.md)相同日常桌面条件下的经验数字，非受控协议。`.\scripts\Download-ChatModel.ps1 -Model iq3` 可带 SHA256 校验下载 GSQ。
+`config/chat-models.json` 同步保存了这套 role / modality 元数据，供脚本或界面读取。从零部署的默认路径现在下载并配置 `iq3`；也可以显式运行 `.\scripts\Download-ChatModel.ps1 -Model iq3 -Vision`。CRACK 仍属于单独准备的 NInfer 制品/运行时路径，具体见[旗舰文档](docs/CRACK-FLAGSHIP.zh-CN.md)。
+
+GSQ 的约 50 tok/s 是作者日常桌面环境下的经验数字，不是受控协议。README 其他位置的 32.05 tok/s 会话加权吞吐与 20K–155K 长上下文结果继续作为 **QQZ 历史证据**保留，不会改写成 GSQ 的测试结果。
 
 ## 换用其他模型
 
@@ -178,7 +182,7 @@ GSQ 的约 50 tok/s 是作者在与[成功案例](docs/CASE-STUDY.md)相同日�
 
 - **交互式换模型:** 把任意 GGUF(可选附 `mmproj-*.gguf`)放进一个文件夹,在卡片中将当前槽位的模型文件夹指向它,选择该文件,然后"应用并重启"。GGUF 与 mmproj 在文件夹内自动识别;显示名由文件名派生,可在模型页重命名。同一时间只运行一个槽位——切换前先停止当前模型(两者共享同一份显存预算)。
 - **修改固定默认模型(从零可复现):** 编辑 `config/assets.json` 的 `model`/`vision` 条目(URL + SHA256)和 `config/settings.template.json` 中 A 槽的 `file`/`mmproj` 字段,然后在新位置重新运行 `Download.ps1 -Models` 和 `Configure.ps1`。
-- **其他模型调参提示:** MTP 相关旗标(`--spec-type draft-mtp`、`--spec-draft-n-max`、`--kvmem-mtp-state replay`)要求模型为 MTP-enabled GGUF(QQZ V3、Unsloth MTP 版等)。KV 量化以保真换显存——q5_0 是本仓库验证过的中间档;q8_0 更占显存,q4_0 更省。预算与预留都是 token 数,不是 MB。调小 `-b` 可释放计算缓冲显存,但会损失部分预填充速度。保持 `-ngl 999` 完整 GPU offload。
+- **其他模型调参提示:** MTP 相关旗标(`--spec-type draft-mtp`、`--spec-draft-n-max`、`--kvmem-mtp-state replay`)要求模型为 MTP-enabled GGUF（GSQ、QQZ V3、Unsloth MTP 版等）。KV 量化以保真换显存——q5_0 是本仓库验证过的中间档;q8_0 更占显存,q4_0 更省。预算与预留都是 token 数,不是 MB。调小 `-b` 可释放计算缓冲显存,但会损失部分预填充速度。保持 `-ngl 999` 完整 GPU offload。
 - **边界:** 128K 是可选档位;在 **KVMem GGUF 路径上** 192K/256K 未作为稳定的日常档位验证。（256K 的例外是 NInfer 的 [CRACK 旗舰](docs/CRACK-FLAGSHIP.zh-CN.md)：262144 以 4-bit KV 成功分配——但该深度的准确率仍未验证。）换了显卡/内存后整个包络都会变化——请重新实测,不要假定文中数字可直接迁移。
 
 ## 稳定性边界
