@@ -3,25 +3,52 @@
     "backend": "kvmem",
     "file": "Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
     "url": "https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d562806dbafae37109975e970aae91b43e73b440/Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
-    "sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f"
+    "sha256": "58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f",
+    "displayName": "GSQ — General / Multimodal Default",
+    "role": "default-general-multimodal",
+    "modalities": [
+      "text",
+      "image"
+    ],
+    "default": true
   },
   "qqz": {
     "backend": "kvmem",
     "file": "Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
     "url": "https://huggingface.co/QQZ2026/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-MTP-GGUF/resolve/e45b6a3a3c137c11df9da4a79cfae82fdd7faaa3/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-V3-Final-MTP.gguf",
-    "sha256": "f6c1f6e1211aeceaa386cbeabd0bdfbee0d124747ecaa3e908a93394518e9274"
+    "sha256": "f6c1f6e1211aeceaa386cbeabd0bdfbee0d124747ecaa3e908a93394518e9274",
+    "displayName": "QQZ — Balanced KVMem Alternative",
+    "role": "balanced-kvmem-alternative",
+    "modalities": [
+      "text",
+      "image"
+    ],
+    "default": false
   },
   "heretic": {
     "backend": "kvmem",
     "file": "Qwen3.8-27B-Heretic-Ara-iq4_xs-3.0-mtp.gguf",
     "url": "https://huggingface.co/Bucoid/Qwen3.8-27B-Heretic-Ara-16GB-VRAM-IQ4-XS-MTP-GGUF/resolve/d54ccececdc99aea47de641912d600835a98428f/Qwen3.8-27B-Heretic-Ara-iq4_xs-3.0-mtp.gguf",
-    "sha256": "e8bd42941e3b15337cb72a34a2820beadc557e6f38e0c8c09983e223380c02e4"
+    "sha256": "e8bd42941e3b15337cb72a34a2820beadc557e6f38e0c8c09983e223380c02e4",
+    "displayName": "Heretic-Ara — Alternative KVMem",
+    "role": "alternative-kvmem",
+    "modalities": [
+      "text",
+      "image"
+    ],
+    "default": false
   },
   "bonsai": {
     "backend": "ninfer",
     "file": "Bonsai2-PQ2-MTP.ninfer",
     "sha256": "05bbbf01090c6f61113b54556daa22ad0b45036a078af6cd6f02a3fde47ad76c",
-    "runtime": "Custom Windows/Ada text-only NInfer build; see docs/BONSAI.md. No automatic upstream-latest substitution."
+    "runtime": "Custom Windows/Ada text-only NInfer build; see docs/BONSAI.md. No automatic upstream-latest substitution.",
+    "displayName": "Bonsai 2 — NInfer Text Fallback",
+    "role": "ninfer-text-fallback",
+    "modalities": [
+      "text"
+    ],
+    "default": false
   },
   "crack": {
     "backend": "ninfer",
@@ -33,6 +60,12 @@
       "gguf_sha256": "5b24ea3eebc3e0bccd05fb474eb88b10c57699d71a5db2f29485e3789a70d55d"
     },
     "engine": "CraneBW/ninfer-ternary-bonsai-ada @ ad6cb4645bbfee13d487578682c7b2a53f299e16",
-    "runtime": "Custom Windows/Ada text-only NInfer build, 262144 ctx / rk4v4-e8 KV / MTP3; flagship configuration, see docs/CRACK-FLAGSHIP.md. Artifact is self-converted; not distributed."
+    "runtime": "Custom Windows/Ada text-only NInfer build, 262144 ctx / rk4v4-e8 KV / MTP3; flagship configuration, see docs/CRACK-FLAGSHIP.md. Artifact is self-converted; not distributed.",
+    "displayName": "Bonsai 2 CRACK — Jailbreak / Flash / Text-only",
+    "role": "jailbreak-flash-text-only",
+    "modalities": [
+      "text"
+    ],
+    "default": false
   }
 }
