@@ -36,7 +36,7 @@ The language model stays fully GPU-offloaded while the long-context KV cache liv
 
 ## Community validation case: GSQ on RTX 4080 16GB
 
-The primary performance case for the default GSQ profile is now the independent community report by **RiskManager6** in [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47). It tested **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3** with `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf`.
+The primary performance case for the default GSQ profile is now the third-party community report by **RiskManager6** in [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47). It tested **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3** with `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf`.
 
 | Test | Reported result |
 |---|---:|
@@ -165,7 +165,7 @@ The repository exposes five named profiles. One model runs at a time. The three 
 
 | ID | Actual model | Backend | Status / intended use |
 |---|---|---|---|
-| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **Default — general-purpose + multimodal.** The primary performance case is the independent rc3 report in #47: 52.6 tok/s at ~60K and 54.6–59.1 tok/s across the 9 K/V combinations at ~32K. |
+| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **Default — general-purpose + multimodal.** The primary performance case is the third-party rc3 community report in #47: 52.6 tok/s at ~60K and 54.6–59.1 tok/s across the 9 K/V combinations at ~32K. |
 | `qqz` | **Qwen3.8-27B-ZeroRefusal IQ4_XS V3 Final MTP** | KVMem | Balanced KVMem alternative. |
 | `heretic` | **Qwen3.8-27B-Heretic-Ara IQ4_XS 3.0 MTP** | KVMem | Alternative 16GB GGUF profile; supports the same KVMem multimodal path when the projector is enabled. |
 | `bonsai` | **Bonsai2-PQ2-MTP.ninfer** | NInfer | Original Bonsai NInfer profile / compatibility fallback; **text-only** in DSH. |
