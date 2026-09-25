@@ -2,7 +2,7 @@
 
 [English](DEPLOYMENT.md) | [**简体中文**](DEPLOYMENT.zh-CN.md)
 
-本手册是交给另一台电脑或 Codex 的主入口。仓库名中的 KVMem（有时口头写作 KVMan）是 llama.cpp 分支；Bonsai 使用另一套 NInfer 后端。**四个可选聊天模型意味着四选一，不是四个服务同时驻留。聊天和生图也必须串行使用 GPU。**
+本手册是交给另一台电脑或 Codex 的主入口。仓库名中的 KVMem（有时口头写作 KVMan）是 llama.cpp 分支；Bonsai 使用另一套 NInfer 后端。**五个命名聊天模型配置意味着五选一，不是五个服务同时驻留。聊天和生图也必须串行使用 GPU。**
 
 同为 RTX 4080 16GB / 32GB RAM 不代表剩余资源相同。作者桌面在 2026-09-21 的一次只读检查中，Heretic 128K 已加载时整卡约占用 15.4 GiB，余量很小。这不是模型独占显存值，也不是朋友的 OOM 根因证明。先记录朋友机器的进程、空闲显存和失败阶段，再改参数。
 
@@ -103,16 +103,19 @@ Start.ps1 使用 `--disable-gpu` 启动 Electron，以减少界面占用；控�
 
 通过后，退出 DSH，用同一 Configure-Stack 命令加 `-IntegrateExisting -Vision` 重新配置；重启，用一张小尺寸非敏感图片验证视觉。控制器应注入 `--no-mmproj-offload --image-max-tokens 512`。若视觉 projector 上 GPU，将挤占聊天显存。
 
-## 5. 四个可选模型与两档参数
+## 5. 五个模型配置与两档标准参数
 
-| 选择 | 后端 / 权重体积 | 首次验证档 bootstrap | 作者桌面档 desktop128 |
+模型定位现在明确区分：**`iq3` / GSQ 是泛用多模态默认配置**，而 **`crack` 是 Jailbreak / Flash / text-only 旗舰**。同一时间只运行一个聊天模型。
+
+| ID | 定位 | 后端 / 权重体积 | 标准配置 |
 |---|---|---|---|
-| iq3 | KVMem，约 11.29 GiB | 64K / Q5 KV / MTP1 | 128K / Q5 KV / MTP2 |
-| qqz | KVMem，约 13.27 GiB | 同上，显存余量更小 | 同上 |
-| heretic | KVMem，约 13.35 GiB | 同上，显存余量更小 | 同上 |
-| bonsai | 自定义 NInfer，约 7.74 GiB | 32K INT8 KV，MTP关闭，仅文本 | 128K INT8 KV，MTP关闭，仅文本 |
+| `iq3` | **默认——泛用 + 多模态** | KVMem，约 11.29 GiB | bootstrap：64K / Q5 KV / MTP1；desktop128：128K / Q5 KV / MTP2 |
+| `qqz` | 均衡 KVMem 备选 / 历史 benchmark 基线 | KVMem，约 13.27 GiB | 同两档参数，显存余量更小 |
+| `heretic` | 另一套 16GB GGUF 备选 | KVMem，约 13.35 GiB | 同两档参数，显存余量更小 |
+| `bonsai` | 原版 NInfer 兼容/回退，text-only | 自定义 NInfer，约 7.74 GiB | 32K INT8 KV bootstrap；128K INT8 KV desktop128；MTP 关闭 |
+| `crack` | **Jailbreak / Flash / text-only 旗舰** | 自定义 NInfer，自行转换制品 | 262144 / 262144，`rk4v4-e8` 4-bit KV，MTP draft 3；日常 100+ tok/s 经验值 |
 
-前三者的具体参数由 `scripts/stack-config.mjs` 生成，避免手抄遗漏：
+前三个 KVMem 模型的具体参数由 `scripts/stack-config.mjs` 生成，避免手抄遗漏：
 
 | 参数 | bootstrap | desktop128 |
 |---|---:|---:|
@@ -125,13 +128,13 @@ Start.ps1 使用 `--disable-gpu` 启动 Electron，以减少界面占用；控�
 | `-ngl` | 999 | 999 |
 | 视觉编码器 | CPU，512 image tokens | CPU，512 image tokens |
 
-bootstrap 是此次新增的低预算验收档，已做参数测试，未在朋友电脑上做完整推理验证；desktop128 来自作者实测配置，不是所有 16GB 环境的保证。逻辑上下文不等于 GPU KV 预算；只降低 `-c` 而不调整检索/生成预算，不一定解决 OOM。小预算也更不适合巨大未缓存输入和摘要重放，应在短任务通过后再扩大。
+bootstrap 是低预算验收档，参数有自动化覆盖，但不能视为所有目标电脑都完成了实机推理验证；desktop128 来自作者实测配置，也不是所有 16GB 环境的保证。逻辑上下文不等于 GPU KV 预算，只降低 `-c` 不一定解决 OOM。
 
-切换 QQZ/Heretic：先下载对应文件，再退出 DSH，使用相同配置命令加 `-Model qqz` 或 `-Model heretic` 和 `-IntegrateExisting`。如要恢复作者 128K 档，显式加 `-Profile desktop128`。每次只改一项并复测。三个 GGUF 共用槽位 A 的文件选择；不是创建四个并发槽位。面板直接换文件后还需“添加到模型列表”，以同步模型 ID；配置脚本会自动完成这些字段。
+从零/默认 KVMem 路径现在使用 `iq3`。切换 QQZ/Heretic 时，先下载对应文件，再退出 DSH，使用相同配置命令加 `-Model qqz` 或 `-Model heretic` 和 `-IntegrateExisting`；作者 128K 档显式加 `-Profile desktop128`。三个 GGUF 共用 A 槽和相同的多模态 projector 路径。
 
-第五个旗舰配置是 bonsai 路径的扩展而非替代：`Bonsai2-CRACK-PQ2.ninfer` 运行在 CraneBW/ninfer-ternary-bonsai-ada 引擎上，以 4-bit KV + MTP draft 3 分配 262144/262144，这里两台 RTX 4080 日常使用稳定 100+ tok/s。它需要更新的引擎构建和自行转换的制品；来源、实测与回退见 [CRACK-FLAGSHIP.zh-CN.md](CRACK-FLAGSHIP.zh-CN.md)。脚本的 `-Model` 可选值仍为上述四个；旗舰配置通过把 B 槽指向新制品与新引擎来手动完成。
+`bonsai` 与 `crack` 都需要单独的自定义 NInfer 运行时和转换制品。当前脚本 `-Model` 路径直接支持原版 `bonsai`；CRACK 因为使用不同的 262K / 4-bit KV / MTP3 启动契约，目前仍按 B 槽手动准备对应制品与运行时，避免错误套用旧 Bonsai 参数。来源、实测与回退见 [CRACK-FLAGSHIP.zh-CN.md](CRACK-FLAGSHIP.zh-CN.md)。
 
-Bonsai 配置和运行时前提见 [BONSAI.md](BONSAI.md)。本次发布已包含 NInfer 控制器适配，但没有把作者的自定义 CUDA 二进制伪装成上游通用安装包。
+Bonsai 配置和运行时前提见 [BONSAI.md](BONSAI.md)。控制器已包含 NInfer 适配，但仓库仍不分发作者的自定义 CUDA 二进制。
 
 ## 6. 插件与长会话补丁
 
