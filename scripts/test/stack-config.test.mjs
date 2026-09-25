@@ -1,8 +1,20 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { mergeStack, modelPresets, catalog } from '../stack-config.mjs'
 import { validateKvmemRows, buildNinferArgv } from '../../plugins/dsh-local-llm-controller/lib/index.js'
 const opts={modelsDir:'D:/Models',runtimeBin:'D:/KVMem/bin'}
+test('repository default is GSQ iq3 with multimodal input',()=>{
+  const template=JSON.parse(fs.readFileSync(new URL('../../config/settings.template.json',import.meta.url),'utf8'))
+  const assets=JSON.parse(fs.readFileSync(new URL('../../config/assets.json',import.meta.url),'utf8'))
+  assert.equal(template['agent-default-model'].model,catalog.iq3.file)
+  assert.equal(template['local-llm'].config.slots.a.file,catalog.iq3.file)
+  assert.deepEqual(template['llm-pi-ai'].providers['qqz-kvmem'].models[0].input,['text','image'])
+  assert.equal(assets.find(x=>x.name==='model').file,catalog.iq3.file)
+  assert.equal(catalog.iq3.role,'default-general-multimodal')
+  assert.equal(catalog.crack.role,'jailbreak-flash-text-only')
+  assert.deepEqual(catalog.crack.modalities,['text'])
+})
 test('existing DSH credentials, unrelated providers, image workflows and permissions survive merge',()=>{
   const old={'llm-pi-ai':{custom:true,providers:{remote:{key:'fixture'}}},permission:{defaultPreset:'read-only'},'image-generation':{provider:'comfyui'},other:{keep:true}}
   const updated=mergeStack(old,opts)
