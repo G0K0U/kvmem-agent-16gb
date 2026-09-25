@@ -176,6 +176,19 @@ DSH Desktop → 本地参数面板管理模型进程
 
 GSQ 的约 50 tok/s 是作者日常桌面环境下的经验数字，不是受控协议。README 其他位置的 32.05 tok/s 会话加权吞吐与 20K–155K 长上下文结果继续作为 **QQZ 历史证据**保留，不会改写成 GSQ 的测试结果。
 
+### 第三方社区验证
+
+另一位社区用户在 **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3** 上对同一个 GSQ `IQ3_S MTP` 模型进行了独立的社区实测，补充了本仓库自身测试之外的数据：[kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47)。
+
+其报告包括：
+
+- 约 60K token 检索提示下 **52.6 tok/s**，且成功命中埋在中间位置的目标值。
+- 约 32K token 下完整测试 9 组 K/V 量化组合，decode **54.6–59.1 tok/s**，检索与缓存复用均正常。
+- 在 128K 上下文中完成 **100,084 token** 检索，decode **56.5 tok/s**，中间埋点成功命中。
+- CPU 侧 projector 多模态测试成功；该报告使用的是更小的 **Q5_K-MIX** projector，而本仓库当前固定默认仍为 F16 projector。
+
+这些属于**第三方社区结果，不是对本仓库旧 QQZ/rc2 benchmark 的严格同条件复现**。对方使用 rc3、GSQ IQ3_S、清理后的显存环境、不同 retrieval budget，并启用了 NVIDIA 的 prefer-no-sysmem-fallback 设置。因此应把它视为对 GSQ/KVMem 路径的补充证据，而不是普遍性能保证。
+
 ## 换用其他模型
 
 槽位机制与模型无关;固定默认模型只是便利,不是限制。
