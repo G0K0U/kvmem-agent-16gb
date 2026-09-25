@@ -10,9 +10,9 @@
 
 **One repo. One setup. Fully local.**
 
-**Deploying on another 16GB PC, or troubleshooting OOM? Start with the [complete deployment guide](docs/DEPLOYMENT.md) and [Codex handoff instructions](docs/CODEX-DEPLOY.en.md).** Includes existing-DSH integration with backups, four model configurations plus the CRACK flagship, low-budget startup presets, GPU preflight and the ComfyUI image companion. Bonsai requires the separate custom runtime described in [its prerequisites](docs/BONSAI.en.md); this is not an automatic four-engine installer.
+**Deploying on another 16GB PC, or troubleshooting OOM? Start with the [complete deployment guide](docs/DEPLOYMENT.md) and [Codex handoff instructions](docs/CODEX-DEPLOY.en.md).** Includes existing-DSH integration with backups, five clearly defined model profiles, low-budget startup presets, GPU preflight and the ComfyUI image companion. Bonsai requires the separate custom runtime described in [its prerequisites](docs/BONSAI.en.md); this is not an automatic four-engine installer.
 
-> **🏆 Flagship: [Bonsai 2 CRACK PQ2](docs/CRACK-FLAGSHIP.md) — 100+ tok/s decode with 262144 context on RTX 4080 16GB.** Deployed on both RTX 4080 machines here; both sustain 100+ tok/s in daily use (98.9–99.1 tok/s on the strict single-shot baseline). Needs the custom NInfer runtime. Prefer intelligence over speed? **GSQ** is the pick at a stable ~50 tok/s. See the [model guide](#model-guide).
+> **Default daily model: GSQ (`iq3`) — general-purpose + multimodal.** It uses the standard KVMem path with the F16 vision projector and is the default model downloaded/configured by this repo. For maximum speed and an explicitly **Jailbreak / Flash / text-only** profile, use **[Bonsai 2 CRACK PQ2](docs/CRACK-FLAGSHIP.md)**: 100+ tok/s daily use with 262144 context on RTX 4080 16GB (98.9–99.1 tok/s strict single-shot baseline). CRACK requires the custom NInfer runtime.
 
 [Download the v1.3.0 deployment archive and SHA256](https://github.com/G0K0U/kvmem-agent-16gb/releases/tag/v1.3.0) (no weights or private configuration).
 
@@ -30,7 +30,7 @@ The language model stays fully GPU-offloaded while the long-context KV cache liv
 |---|---|
 | **GPU** | RTX 4080 — 16GB VRAM |
 | **System RAM** | 32GB |
-| **Model** | Qwen3.8 27B community IQ4_XS MTP quant |
+| **Default model** | GSQ — Qwen3.8-27B-GSQ-RCO IQ3_S MTP + F16 vision projector |
 | **Daily preset** | 64K context / MTP2 |
 | **Platform** | Windows |
 
@@ -54,7 +54,7 @@ These numbers were measured on an everyday desktop, with browsers, editors and c
 
 ## Quick start
 
-Requires Windows x64, an NVIDIA driver matching the pinned CUDA runtime, **16GB VRAM + 32GB RAM**, Node.js 24 (original environment 24.19.0), PowerShell, Git and curl. The model is about 14.25GB and the vision encoder about 0.93GB. Everyday background software (browser, editors, chat) can stay open while the model runs — the numbers above were measured that way; close GPU-heavy workloads such as ComfyUI or games.
+Requires Windows x64, an NVIDIA driver matching the pinned CUDA runtime, **16GB VRAM + 32GB RAM**, Node.js 24 (original environment 24.19.0), PowerShell, Git and curl. The default GSQ model is about 11.29 GiB and the vision encoder about 0.93GB. Everyday background software (browser, editors, chat) can stay open while the model runs — the numbers above were measured that way; close GPU-heavy workloads such as ComfyUI or games.
 
 **Three commands. The only interactive step is the DSH Desktop installer.**
 
@@ -121,7 +121,7 @@ DSH Desktop → local parameter panel manages the model process
 
 | Component | Pinned version / source |
 |---|---|
-| QQZ (default model) | [IQ4_XS V3 Final MTP](https://huggingface.co/QQZ2026/Qwen3.8-27B-ZeroRefusal-UD-IQ4_XS-MTP-GGUF), revision `e45b6a3a3c137c11df9da4a79cfae82fdd7faaa3` |
+| GSQ (`iq3`, default model) | [Qwen3.8-27B-GSQ-RCO IQ3_S MTP](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF), revision `d562806dbafae37109975e970aae91b43e73b440` |
 | KVMem | [v0.16.0-rc2](https://github.com/kvmem/kvmem-llama.cpp/releases/tag/v0.16.0-rc2), Windows CUDA 13.2.86 |
 | DSH Desktop | [2.0.12-beta.1](https://github.com/anywhere-labs/dsh-desktop/releases/tag/v2.0.12-beta.1), community desktop client |
 | DeepSeek Harness | `0.1.6-alpha.2`, bundled with the desktop build |
@@ -133,7 +133,7 @@ These are pinned versions, not a tracker of latest. Download URLs and SHA256 liv
 
 | Generic — works with other models | Pinned in this repo |
 |---|---|
-| Two model slots (A/B); each slot points at any folder of GGUF files, `mmproj` auto-detected, one model process at a time | `assets.json` pins the QQZ IQ4_XS V3 model + F16 mmproj so `Download.ps1` is one command with SHA256 checks |
+| Two model slots (A/B); each slot points at any folder of GGUF files, `mmproj` auto-detected, one model process at a time | `assets.json` pins the GSQ IQ3_S MTP model + F16 mmproj so `Download.ps1` is one command with SHA256 checks |
 | Eight editable launch-parameter groups (2 slots × text/vision × fast/long) | `settings.template.json` presets were tuned on the 27B / 66-layer model: 64K, MTP2, q5_0 KV, budget 32K |
 | Model display name derives from the GGUF filename and can be renamed on the models page | The measured numbers were taken with the QQZ model only |
 | `serverExe` is configurable (`llama-kvmem-server.exe`; `llama-server` on Linux/macOS) | DSH Desktop and DeepSeek Harness versions are pinned |
@@ -142,7 +142,7 @@ Apply-time validation in the panel enforces an envelope: context ∈ {64K, 128K,
 
 ## Daily use & parameter panel
 
-Open the Local LLM Controller / QQZ-KVMem card in DSH settings. Default slot A, vision mode, fast preset = **64K / MTP2**, with the CPU vision encoder kept in this mode. Pick a context step, MTP draft count and KV budget, then click "Apply & restart"; wait for the backend to become healthy again, confirm the context size synced in the model list, and only then start a new task. Finish any running agent request first.
+Open the Local LLM Controller in DSH settings. Default slot A is **GSQ (`iq3`)**, vision mode, fast preset = **64K / MTP2**, with the CPU vision encoder kept in this mode. Pick a context step, MTP draft count and KV budget, then click "Apply & restart"; wait for the backend to become healthy again, confirm the context size synced in the model list, and only then start a new task. Finish any running agent request first.
 
 | Parameter | Default | Meaning |
 |---|---:|---|
@@ -162,15 +162,19 @@ To shut down: stop tasks, stop the model in the panel, then exit the desktop nor
 
 ## Model guide
 
-Three validated picks beyond the pinned default — one model runs at a time. The two GGUF choices share the standard KVMem slots; Bonsai-family artifacts need the [custom NInfer runtime](docs/BONSAI.en.md).
+The repository exposes five named profiles. One model runs at a time. The three GGUF profiles use the standard KVMem slot and can use the shared F16 vision projector; Bonsai-family `.ninfer` artifacts use the custom NInfer runtime and are text-only in DSH.
 
-| Goal | Pick | Measured on RTX 4080 16GB |
-|---|---|---|
-| Intelligence / reasoning | **GSQ** — [Qwen3.8-27B-GSQ-RCO IQ3_S MTP](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF) (`iq3`, KVMem) | stable **~50 tok/s** |
-| Balanced, fully reproducible default | **QQZ** IQ4_XS V3 MTP (`qqz`, KVMem) | 32.05 tok/s session-weighted; 14–20 tok/s at 20K–155K input |
-| Max speed + long context | **Bonsai 2 CRACK PQ2** (`Bonsai2-CRACK-PQ2.ninfer`, NInfer) | **100+ tok/s** in daily use, 262144 context — [flagship doc](docs/CRACK-FLAGSHIP.md) |
+| ID | Actual model | Backend | Status / intended use |
+|---|---|---|---|
+| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **Default — general-purpose + multimodal.** Recommended daily profile; shared F16 vision projector; author field figure ~50 tok/s. |
+| `qqz` | **Qwen3.8-27B-ZeroRefusal IQ4_XS V3 Final MTP** | KVMem | Balanced KVMem alternative. This remains the historical case-study / long-context measurement baseline. |
+| `heretic` | **Qwen3.8-27B-Heretic-Ara IQ4_XS 3.0 MTP** | KVMem | Alternative 16GB GGUF profile; supports the same KVMem multimodal path when the projector is enabled. |
+| `bonsai` | **Bonsai2-PQ2-MTP.ninfer** | NInfer | Original Bonsai NInfer profile / compatibility fallback; **text-only** in DSH. |
+| `crack` | **Bonsai2-CRACK-PQ2.ninfer** | NInfer | **Jailbreak / Flash / text-only flagship.** 100+ tok/s daily use, 262144 context; custom Windows/Ada NInfer runtime required. |
 
-The ~50 tok/s for GSQ is the author's field number under the same everyday-desktop conditions as the [case study](docs/CASE-STUDY.md), not from a controlled protocol. `.\scripts\Download-ChatModel.ps1 -Model iq3` fetches GSQ with SHA256 checks.
+`config/chat-models.json` carries the same role and modality metadata in machine-readable form. The reproducible default path now downloads/configures `iq3`; `.\scripts\Download-ChatModel.ps1 -Model iq3 -Vision` does the same explicitly. CRACK remains a separately prepared NInfer artifact/runtime path; see the [flagship document](docs/CRACK-FLAGSHIP.md).
+
+The ~50 tok/s GSQ number is the author's field figure under everyday-desktop conditions, not a controlled protocol. The 32.05 tok/s session-weighted and 20K–155K long-context figures elsewhere in this README are retained as **QQZ historical evidence**, not re-labelled as GSQ results.
 
 ## Using a different model
 
@@ -178,7 +182,7 @@ The slots are model-agnostic; the pinned default is a convenience, not a require
 
 - **Swap interactively:** drop any GGUF (plus an optional `mmproj-*.gguf`) into a folder, point the card's model-folder field for the active slot at it, choose the file, then Apply & restart. GGUF and mmproj files are auto-detected inside the folder; the display name derives from the filename and can be renamed on the models page. One slot runs at a time — stop the current model before switching (they share one VRAM budget).
 - **Change the pinned default (reproducible from scratch):** edit the `model`/`vision` entries in `config/assets.json` (URL + SHA256) and the `file`/`mmproj` fields of slot A in `config/settings.template.json`, then re-run `Download.ps1 -Models` and `Configure.ps1` in a fresh location.
-- **Tuning notes for other models:** the MTP flags (`--spec-type draft-mtp`, `--spec-draft-n-max`, `--kvmem-mtp-state replay`) require an MTP-enabled GGUF (QQZ V3, Unsloth MTP builds, and similar). KV quantization trades VRAM for fidelity — q5_0 is the validated middle ground here; q8_0 costs VRAM, q4_0 frees it. Budget and reserve are token counts, not MB. A smaller `-b` frees compute buffer memory at some prompt-processing speed. Keep `-ngl 999` for full GPU offload.
+- **Tuning notes for other models:** the MTP flags (`--spec-type draft-mtp`, `--spec-draft-n-max`, `--kvmem-mtp-state replay`) require an MTP-enabled GGUF (GSQ, QQZ V3, Unsloth MTP builds, and similar). KV quantization trades VRAM for fidelity — q5_0 is the validated middle ground here; q8_0 costs VRAM, q4_0 frees it. Budget and reserve are token counts, not MB. A smaller `-b` frees compute buffer memory at some prompt-processing speed. Keep `-ngl 999` for full GPU offload.
 - **Boundary:** 128K is an optional preset; 192K/256K are not validated as stable daily settings **on the KVMem GGUF path**. (The 256K exception is the NInfer-based [CRACK flagship](docs/CRACK-FLAGSHIP.md), where 262144 allocates with 4-bit KV — accuracy at that depth remains unvalidated.) On a different GPU/RAM the whole envelope shifts — re-verify rather than assuming the numbers above transfer.
 
 ## Stability boundaries
