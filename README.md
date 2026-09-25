@@ -176,6 +176,19 @@ The repository exposes five named profiles. One model runs at a time. The three 
 
 The ~50 tok/s GSQ number is the author's field figure under everyday-desktop conditions, not a controlled protocol. The 32.05 tok/s session-weighted and 20K–155K long-context figures elsewhere in this README are retained as **QQZ historical evidence**, not re-labelled as GSQ results.
 
+### Third-party community validation
+
+A separate community report on **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3** tested the same GSQ `IQ3_S MTP` model and extends the evidence beyond this repository's own measurements: [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47).
+
+Reported results include:
+
+- **52.6 tok/s** decode on a ~60K-token retrieval prompt, with the planted mid-context value retrieved correctly.
+- **54.6–59.1 tok/s** across all 9 K/V quantization combinations tested at ~32K tokens, with successful cache reuse and retrieval.
+- A **100,084-token** retrieval run within a 128K context at **56.5 tok/s**, with the planted value retrieved correctly.
+- Successful multimodal inference with the projector kept on CPU; that report used the smaller **Q5_K-MIX** projector rather than this repo's pinned F16 projector.
+
+These are **third-party community results, not a direct apples-to-apples reproduction** of this repo's earlier QQZ/rc2 benchmarks. The report used rc3, GSQ IQ3_S, a cleaned-up VRAM environment, different retrieval budgets, and NVIDIA's prefer-no-sysmem-fallback setting. Treat it as complementary evidence for the GSQ/KVMem path rather than a universal performance guarantee.
+
 ## Using a different model
 
 The slots are model-agnostic; the pinned default is a convenience, not a requirement.
