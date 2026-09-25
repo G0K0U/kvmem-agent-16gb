@@ -34,27 +34,26 @@ The language model stays fully GPU-offloaded while the long-context KV cache liv
 | **Daily preset** | 64K context / MTP2 |
 | **Platform** | Windows |
 
-## Measured on a real desktop
+## Community validation case: GSQ on RTX 4080 16GB
 
-| | Result |
+The primary performance case for the default GSQ profile is now the independent community report by **RiskManager6** in [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47). It tested **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3** with `Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf`.
+
+| Test | Reported result |
 |---|---:|
-| Real 10-call coding-agent session | **32.05 tok/s weighted throughput** |
-| Long-context decode | **14–20 tok/s from ~20K to 155K input** |
-| Practical daily context preset | **64K** |
-| MTP speculative decoding | **Draft 2, zero replay errors in the measured session** |
-| Flagship: Bonsai 2 CRACK PQ2 (NInfer runtime) | **100+ tok/s daily, 262144 context** |
+| ~60K-token retrieval prompt | **52.6 tok/s**, planted mid-context value retrieved correctly |
+| 9/9 K/V quantization combinations at ~32K | **54.6–59.1 tok/s**, all combinations loaded, inferred, retrieved and reused cache successfully |
+| 100,084-token retrieval inside 128K context | **56.5 tok/s**, planted value retrieved correctly |
+| 128K run peak GPU usage | **14,777 MiB / 16,376 MiB** |
+| 128K run minimum available system RAM | **2,571 MB** |
+| CPU-side multimodal smoke test | Correct result; **64.8 tok/s** decode |
 
-These numbers were measured on an everyday desktop, with browsers, editors and chat applications left open in the background — not on an isolated benchmark machine. The flagship row is the [Bonsai 2 CRACK deployment](docs/CRACK-FLAGSHIP.md): 98.9–99.1 tok/s single-shot strict baseline at deployment, 100+ tok/s sustained in daily use on both RTX 4080 machines; 262144 context allocates with ~1.61 GiB VRAM free.
+The report also published a parameterized PowerShell reproduction script in the issue discussion. Its environment is not identical to this repository's pinned deployment: it used **rc3**, the smaller **Q5_K-MIX** projector on CPU, a cleaned-up VRAM environment, and NVIDIA's prefer-no-sysmem-fallback policy. Treat the numbers as a **third-party community case**, not a guaranteed throughput target for every 16GB system.
 
-> **32.05 tok/s is session-weighted throughput, not a claim that 155K context decodes at 32 tok/s.** The session's actual peak context was about 27K tokens. Method, numbers and limits: [case study](docs/CASE-STUDY.md).
-
-<p align="center">
-  <img src="assets/linkedin/capacity-curve-16gb.png" alt="Decode speed stays flat between 14 and 20 tok/s from 20K to 155K input tokens" width="420">
-</p>
+Full methodology, additional measurements and the author's 128K follow-up are summarized in the [case study](docs/CASE-STUDY.md) and remain attributable to the original [#47 report](https://github.com/kvmem/kvmem-llama.cpp/issues/47).
 
 ## Quick start
 
-Requires Windows x64, an NVIDIA driver matching the pinned CUDA runtime, **16GB VRAM + 32GB RAM**, Node.js 24 (original environment 24.19.0), PowerShell, Git and curl. The default GSQ model is about 11.29 GiB and the vision encoder about 0.93GB. Everyday background software (browser, editors, chat) can stay open while the model runs — the numbers above were measured that way; close GPU-heavy workloads such as ComfyUI or games.
+Requires Windows x64, an NVIDIA driver matching the pinned CUDA runtime, **16GB VRAM + 32GB RAM**, Node.js 24 (original environment 24.19.0), PowerShell, Git and curl. The default GSQ model is about 11.29 GiB and the pinned F16 vision encoder about 0.93GB. Close GPU-heavy workloads such as ComfyUI or games when validating memory headroom; the community case above used a deliberately cleaned-up VRAM environment.
 
 **Three commands. The only interactive step is the DSH Desktop installer.**
 
@@ -135,7 +134,7 @@ These are pinned versions, not a tracker of latest. Download URLs and SHA256 liv
 |---|---|
 | Two model slots (A/B); each slot points at any folder of GGUF files, `mmproj` auto-detected, one model process at a time | `assets.json` pins the GSQ IQ3_S MTP model + F16 mmproj so `Download.ps1` is one command with SHA256 checks |
 | Eight editable launch-parameter groups (2 slots × text/vision × fast/long) | `settings.template.json` presets were tuned on the 27B / 66-layer model: 64K, MTP2, q5_0 KV, budget 32K |
-| Model display name derives from the GGUF filename and can be renamed on the models page | The measured numbers were taken with the QQZ model only |
+| Model display name derives from the GGUF filename and can be renamed on the models page | The primary performance case is the external GSQ/rc3 community report in #47; it is not claimed as this repo's own benchmark |
 | `serverExe` is configurable (`llama-kvmem-server.exe`; `llama-server` on Linux/macOS) | DSH Desktop and DeepSeek Harness versions are pinned |
 
 Apply-time validation in the panel enforces an envelope: context ∈ {64K, 128K, 192K, 256K}; `--kvmem-budget` ∈ {8K … 48K} in 8K steps; `--kvmem-gen-reserve` ∈ {4K, 8K, 16K}; budget + reserve ≤ context; MTP drafts 1–4; `-ngl` ≥ 66 (full GPU offload). That envelope matches 27B-class MTP GGUFs on 16GB VRAM. Other models load through the same slots, but anything outside this envelope is outside what this repo has tested, and the MTP presets assume an MTP-enabled GGUF.
@@ -162,32 +161,19 @@ To shut down: stop tasks, stop the model in the panel, then exit the desktop nor
 
 ## Model guide
 
-The repository exposes five named profiles. One model runs at a time. The three GGUF profiles use the standard KVMem slot and can use the shared F16 vision projector; Bonsai-family `.ninfer` artifacts use the custom NInfer runtime and are text-only in DSH.
+The repository exposes five named profiles. One model runs at a time. The three GGUF profiles use the standard KVMem slot and can use the shared vision projector; Bonsai-family `.ninfer` artifacts use the custom NInfer runtime and are text-only in DSH.
 
 | ID | Actual model | Backend | Status / intended use |
 |---|---|---|---|
-| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **Default — general-purpose + multimodal.** Recommended daily profile; shared F16 vision projector; author field figure ~50 tok/s. |
-| `qqz` | **Qwen3.8-27B-ZeroRefusal IQ4_XS V3 Final MTP** | KVMem | Balanced KVMem alternative. This remains the historical case-study / long-context measurement baseline. |
+| `iq3` | **Qwen3.8-27B-GSQ-RCO IQ3_S MTP** | KVMem | **Default — general-purpose + multimodal.** The primary performance case is the independent rc3 report in #47: 52.6 tok/s at ~60K and 54.6–59.1 tok/s across the 9 K/V combinations at ~32K. |
+| `qqz` | **Qwen3.8-27B-ZeroRefusal IQ4_XS V3 Final MTP** | KVMem | Balanced KVMem alternative. |
 | `heretic` | **Qwen3.8-27B-Heretic-Ara IQ4_XS 3.0 MTP** | KVMem | Alternative 16GB GGUF profile; supports the same KVMem multimodal path when the projector is enabled. |
 | `bonsai` | **Bonsai2-PQ2-MTP.ninfer** | NInfer | Original Bonsai NInfer profile / compatibility fallback; **text-only** in DSH. |
 | `crack` | **Bonsai2-CRACK-PQ2.ninfer** | NInfer | **Jailbreak / Flash / text-only flagship.** 100+ tok/s daily use, 262144 context; custom Windows/Ada NInfer runtime required. |
 
-`config/chat-models.json` carries the same role and modality metadata in machine-readable form. The reproducible default path now downloads/configures `iq3`; `.\scripts\Download-ChatModel.ps1 -Model iq3 -Vision` does the same explicitly. CRACK remains a separately prepared NInfer artifact/runtime path; see the [flagship document](docs/CRACK-FLAGSHIP.md).
+`config/chat-models.json` carries the same role and modality metadata in machine-readable form. The reproducible default path downloads/configures `iq3`; `.\scripts\Download-ChatModel.ps1 -Model iq3 -Vision` does the same explicitly. CRACK remains a separately prepared NInfer artifact/runtime path; see the [flagship document](docs/CRACK-FLAGSHIP.md).
 
-The ~50 tok/s GSQ number is the author's field figure under everyday-desktop conditions, not a controlled protocol. The 32.05 tok/s session-weighted and 20K–155K long-context figures elsewhere in this README are retained as **QQZ historical evidence**, not re-labelled as GSQ results.
-
-### Third-party community validation
-
-A separate community report on **RTX 4080 16GB + 32GB RAM / Windows 11 / KVMem rc3** tested the same GSQ `IQ3_S MTP` model and extends the evidence beyond this repository's own measurements: [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47).
-
-Reported results include:
-
-- **52.6 tok/s** decode on a ~60K-token retrieval prompt, with the planted mid-context value retrieved correctly.
-- **54.6–59.1 tok/s** across all 9 K/V quantization combinations tested at ~32K tokens, with successful cache reuse and retrieval.
-- A **100,084-token** retrieval run within a 128K context at **56.5 tok/s**, with the planted value retrieved correctly.
-- Successful multimodal inference with the projector kept on CPU; that report used the smaller **Q5_K-MIX** projector rather than this repo's pinned F16 projector.
-
-These are **third-party community results, not a direct apples-to-apples reproduction** of this repo's earlier QQZ/rc2 benchmarks. The report used rc3, GSQ IQ3_S, a cleaned-up VRAM environment, different retrieval budgets, and NVIDIA's prefer-no-sysmem-fallback setting. Treat it as complementary evidence for the GSQ/KVMem path rather than a universal performance guarantee.
+For GSQ performance evidence, use the [community case study](docs/CASE-STUDY.md), sourced from [kvmem/kvmem-llama.cpp#47](https://github.com/kvmem/kvmem-llama.cpp/issues/47).
 
 ## Using a different model
 
@@ -201,7 +187,7 @@ The slots are model-agnostic; the pinned default is a convenience, not a require
 ## Stability boundaries
 
 - 64K is the conservative default step. 128K is an optional configuration; 192K/256K are not validated as stable daily settings on the KVMem path (the NInfer-based [CRACK flagship](docs/CRACK-FLAGSHIP.md) allocates 262144 with 4-bit KV — deep-context accuracy remains unvalidated).
-- One stress test reached 155,539 input tokens, but available RAM/VRAM were nearly exhausted and a KVMem block/replay error appeared; that is not a long-term agent reliability guarantee.
+- The #47 community case completed a 100,084-token retrieval inside a 128K context, but minimum available system RAM fell to about 2.57 GB. The reporter did not attempt 192K because the remaining memory margin was already small.
 - KVMem keeping historical KV in system memory is a framework mechanism. GPU offload of language-model layers and KV storage in memory are two different things; Windows can still migrate to shared GPU memory.
 - Vision parsing, screenshot understanding and generic desktop clicking have known failures. Computer Use's non-JSON output, approval-mode and repeated-observation problems are outside this stable default path.
 - Switching context/budget can exhaust memory. On a startup error, restore 64K / 32768 / MTP2 and check the panel logs; do not keep launching more model processes.
