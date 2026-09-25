@@ -1,9 +1,5 @@
 [English](README.md) | [**简体中文**](README.zh-CN.md)
 
-<p align="center">
-  <img src="assets/linkedin/architecture-16gb.png" alt="16GB 显存本地 Agent 栈:DSH Desktop → 参数面板 → KVMem 服务 → GGUF,含 GPU/RAM 内存布局" width="620">
-</p>
-
 # 27B 本地编程 Agent,跑在 16GB 显存上
 
 > 一个可部署、可复现的 Windows 本地 Agent 栈,面向 **16GB 显存 + 32GB 内存的消费级硬件档位**。
