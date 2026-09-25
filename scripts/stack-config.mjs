@@ -43,10 +43,10 @@ export function mergeStack(existing, options) {
   const slots = { a: { ...slot(selectedQwen, modelsDir, runtimeBin), mmproj: 'mmproj-Qwen3.8-27B-F16.gguf' },
     b: ninferBin && bonsaiDir ? slot('bonsai', bonsaiDir, ninferBin) : { dir: '', file: '' } }
   if (model === 'bonsai' && (!ninferBin || !bonsaiDir)) throw Error('Bonsai requires its verified NInfer runtime and artifact directory')
-  const provider = { ...template['llm-pi-ai'].providers['qqz-kvmem'], baseURL: `http://127.0.0.1:${port}/v1`,
+  const provider = { ...template['llm-pi-ai'].providers['qqz-kvmem'], displayName: `${catalog[selectedQwen].displayName || selectedQwen} / KVMem Local`, baseURL: `http://127.0.0.1:${port}/v1`,
     headers: { authorization: 'Bearer dsh-local-llm' },
     models: [selectedQwen, ...(ninferBin && bonsaiDir ? ['bonsai'] : [])].map(key => ({
-      id: catalog[key].file, name: key + ' / ' + profile,
+      id: catalog[key].file, name: (catalog[key].displayName || key) + ' / ' + profile,
       contextWindow: profile === 'desktop128' ? 131072 : key === 'bonsai' ? 32768 : 65536,
       maxTokens: profile === 'desktop128' ? key === 'bonsai' ? 131072 : 16384 : 4096,
       input: key === 'bonsai' || !vision ? ['text'] : ['text', 'image'],
